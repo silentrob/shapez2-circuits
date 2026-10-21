@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <RootNamespace>Circuits</RootNamespace>
+        <UseShapezShifter>true</UseShapezShifter>
+    </PropertyGroup>
+</Project>

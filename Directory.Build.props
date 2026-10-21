@@ -1,0 +1,55 @@
+<Project>
+    <!--
+      Shared build settings for every mod in this repo.
+
+      Paths come from the environment variables the game sets when launched with the
+      set-modding-env-vars option (Windows). Defaults below cover a standard Steam install,
+      so the variables are only needed for a non-default install.
+
+        SPZ2_PATH        game's "shapez 2_Data\Managed" folder (game assemblies)
+        SPZ2_PERSISTENT  Unity persistentDataPath (mods are built into its "mods" folder)
+        SPZ2_SHIFTER     full path to ShapezShifter.dll (set by ShapezShifter; defaults to its Workshop copy)
+        SPZ2_MONOMOD     full path to MonoMod.RuntimeDetour.dll (defaults to its Workshop copy)
+
+      A mod project opts into ShapezShifter with <UseShapezShifter>true</UseShapezShifter>.
+      Projects named *.Tests are test projects: they get none of the mod settings below.
+    -->
+    <PropertyGroup>
+        <SPZ2_PATH Condition="'$(SPZ2_PATH)' == ''">C:\Program Files (x86)\Steam\steamapps\common\shapez 2\shapez 2_Data\Managed</SPZ2_PATH>
+        <SPZ2_PERSISTENT Condition="'$(SPZ2_PERSISTENT)' == ''">$(USERPROFILE)\AppData\LocalLow\tobspr Games\shapez 2</SPZ2_PERSISTENT>
+        <!-- Workshop items sit beside the game under steamapps: ShapezShifter (3542611357) and MonoMod (3542712030). -->
+        <SPZ2_WORKSHOP>$(SPZ2_PATH)\..\..\..\..\workshop\content\2162800</SPZ2_WORKSHOP>
+        <SPZ2_SHIFTER Condition="'$(SPZ2_SHIFTER)' == ''">$(SPZ2_WORKSHOP)\3542611357\ShapezShifter.dll</SPZ2_SHIFTER>
+        <SPZ2_MONOMOD Condition="'$(SPZ2_MONOMOD)' == ''">$(SPZ2_WORKSHOP)\3542712030\MonoMod.RuntimeDetour.dll</SPZ2_MONOMOD>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <IsModProject>true</IsModProject>
+        <IsModProject Condition="$(MSBuildProjectName.EndsWith('.Tests'))">false</IsModProject>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(IsModProject)' == 'true'">
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <LangVersion>9</LangVersion>
+        <Nullable>disable</Nullable>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+        <!-- Build straight into the game's mods folder: build, then restart the game. -->
+        <OutputPath>$(SPZ2_PERSISTENT)\mods\$(MSBuildProjectName)\</OutputPath>
+    </PropertyGroup>
+
+    <!-- Game assemblies every mod needs. Private=False keeps them out of the mod folder. -->
+    <ItemGroup Condition="'$(IsModProject)' == 'true'">
+        <Reference Include="Core" HintPath="$(SPZ2_PATH)\Core.dll" Private="False" />
+        <Reference Include="Game.Core.Modding" HintPath="$(SPZ2_PATH)\Game.Core.Modding.dll" Private="False" />
+        <Reference Include="UnityEngine.CoreModule" HintPath="$(SPZ2_PATH)\UnityEngine.CoreModule.dll" Private="False" />
+    </ItemGroup>
+
+    <!-- Mod data files that ship alongside the DLL. -->
+    <ItemGroup Condition="'$(IsModProject)' == 'true'">
+        <None Include="manifest.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('manifest.json')" />
+        <None Include="translations.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('translations.json')" />
+        <None Include="Resources\**\*" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+</Project>

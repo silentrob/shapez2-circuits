@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!--
+      Tests for the parts of Circuits that do not touch the map: netlists and their evaluation. The sources
+      are compiled in directly rather than referencing the mod, so the tests load only the game's signal
+      types, not ShapezShifter or Unity's runtime.
+    -->
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <Nullable>disable</Nullable>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="..\Circuits\IC\Netlist.cs" Link="IC\Netlist.cs" />
+        <Compile Include="..\Circuits\IC\NetlistEvaluator.cs" Link="IC\NetlistEvaluator.cs" />
+        <Compile Include="..\Circuits\IC\TestCircuits.cs" Link="IC\TestCircuits.cs" />
+    </ItemGroup>
+
+    <!-- The game's signal types and what they depend on, copied next to the tests so they can load. -->
+    <ItemGroup>
+        <Reference Include="$(SPZ2_PATH)\Game.*.dll;$(SPZ2_PATH)\Core*.dll;$(SPZ2_PATH)\Unity.Mathematics.dll;$(SPZ2_PATH)\UnityEngine.CoreModule.dll;$(SPZ2_PATH)\UnityEngine.dll"
+                   Exclude="$(SPZ2_PATH)\Game.*.Editor.*.dll;$(SPZ2_PATH)\Game.Content.Editor.*.dll" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+        <PackageReference Include="xunit" Version="2.9.2" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    </ItemGroup>
+</Project>

@@ -1,0 +1,26 @@
+{
+  "Version": "0.1.0",
+  "Title": "Circuits",
+  "Description": "Logic components for wires: a latch that holds a signal until reset, and integrated circuits.",
+  "Author": "Rob Ellis",
+  "SavedModVersionCompabilityRangeWithSelf": "<0.2.0",
+  "GameVersionSupportRange": "*",
+  "AffectsSaveGames": true,
+  "DisablesAchievements": true,
+  "Conflicts": [],
+  "Assemblies": [
+    "Circuits.dll"
+  ],
+  "Dependencies": [
+    {
+      "ModId": "steam:3542611357",
+      "ModTitle": "Shapez Shifter",
+      "Version": "^1.2.0"
+    },
+    {
+      "ModId": "steam:3542712030",
+      "ModTitle": "MonoMod.RuntimeDetour",
+      "Version": "^25.2.3"
+    }
+  ]
+}

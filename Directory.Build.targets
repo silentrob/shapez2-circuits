@@ -1,0 +1,30 @@
+<Project>
+    <!-- Evaluated after each project file, so it sees the project's own opt-in properties. -->
+
+    <!-- ShapezShifter mods work with game content across many assemblies, so reference them all. -->
+    <ItemGroup Condition="'$(UseShapezShifter)' == 'true'">
+        <Reference Include="ShapezShifter" HintPath="$(SPZ2_SHIFTER)" Private="False" />
+        <Reference Include="MonoMod.RuntimeDetour" HintPath="$(SPZ2_MONOMOD)" Private="False" />
+        <Reference Include="$(SPZ2_PATH)\Game.*.dll;$(SPZ2_PATH)\Core.*.dll;$(SPZ2_PATH)\SPZGameAssembly.dll;$(SPZ2_PATH)\Unity.Mathematics.dll"
+                   Exclude="$(SPZ2_PATH)\Game.Core.Modding.dll;$(SPZ2_PATH)\Game.*.Editor.*.dll;$(SPZ2_PATH)\Game.Content.Editor.*.dll"
+                   Private="False" />
+    </ItemGroup>
+
+    <!-- Opt in with <PublicizeAll>true</PublicizeAll> to reach the game's private members, as the official samples do. -->
+    <PropertyGroup Condition="'$(PublicizeAll)' == 'true'">
+        <PublicizerClearCacheOnClean>true</PublicizerClearCacheOnClean>
+    </PropertyGroup>
+    <ItemGroup Condition="'$(PublicizeAll)' == 'true'">
+        <PackageReference Include="Krafs.Publicizer" Version="2.3.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <Target Name="CheckShapezEnvironment" BeforeTargets="ResolveAssemblyReferences">
+        <Error Condition="!Exists('$(SPZ2_PATH)\Core.dll')"
+               Text="shapez 2 assemblies not found at '$(SPZ2_PATH)'. Set SPZ2_PATH to the game's 'shapez 2_Data\Managed' folder, or launch the game once with --set-modding-env-vars." />
+        <Error Condition="'$(UseShapezShifter)' == 'true' And ('$(SPZ2_SHIFTER)' == '' Or !Exists('$(SPZ2_SHIFTER)'))"
+               Text="$(MSBuildProjectName) uses ShapezShifter but ShapezShifter.dll was not found at '$(SPZ2_SHIFTER)'. Subscribe to ShapezShifter on the Workshop, or set SPZ2_SHIFTER to its DLL." />
+    </Target>
+</Project>
