@@ -29,6 +29,14 @@ namespace Circuits.IC
     {
         public const int SideCount = 4;
 
+        // What a package runs before a circuit is loaded: every side unused, so it drives nothing.
+        public static readonly Netlist Empty = new(
+            "Empty",
+            netCount: 0,
+            sideRoles: new[] { SideRole.Unused, SideRole.Unused, SideRole.Unused, SideRole.Unused },
+            sideNets: new[] { -1, -1, -1, -1 },
+            gates: Array.Empty<Gate>());
+
         public readonly string Name;
         public readonly int NetCount;
         public readonly SideRole[] SideRoles;

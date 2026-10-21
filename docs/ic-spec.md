@@ -235,14 +235,26 @@ The board is an ordinary platform, so building on it uses the normal camera and 
 - **Hotkey:** jump the camera between boards (milestone 5).
 
 Adding side-panel buttons and dialogs means hooking the game's HUD, which ShapezShifter does not cover.
-Milestones 2 and 3 therefore start with **console commands** (F1), which the mod can add through
-ShapezShifter's console hook, and the UI follows in milestone 4:
+Milestones 2 and 3 therefore start with **console commands** (F1), and the UI follows in milestone 4.
+They work on the selected buildings and follow ShapezShifter's convention of prefixing a mod's commands
+with its name:
 
 ```
-ic.compile <name>      compile the board under the cursor into the library
-ic.load <name>         load a circuit into the package under the cursor
-ic.list                list the library
+circuits.list              list the circuits that can be loaded
+circuits.load <circuit>    load a circuit into the selected packages
+circuits.info              show the circuit in each selected package
+circuits.compile <name>    compile the selected board into the library (milestone 3)
 ```
+
+They register by hooking the game's console setup (`GameSessionOrchestrator.Init_9_ConsoleCommands`)
+directly rather than through ShapezShifter's console hook, which passes on only the console, because
+loading needs the session's player and action manager.
+
+**Loading replaces the package.** A package's configuration never changes once placed. `circuits.load`
+deletes each selected package and places a new one holding the circuit, in one of the game's own
+undoable building actions (`ActionModifyBuildings`, scheduled through `PlayerActionManager`). So the
+change happens between simulation updates, the new package's sides are ordered for their new roles, the
+simulation reads its netlist without locking, and Ctrl+Z undoes a load.
 
 ### 3.10 Packages
 
@@ -313,9 +325,9 @@ Each one ends with something playable.
    hard-coded netlist (a half adder), with the evaluator and its tests. Proves: package sides,
    configuration path, state, evaluator matches vanilla.
 2. **Netlists in packages.** Netlist in the package configuration, saved and copied by blueprints.
-   `ic.load` loads from a built-in set of test circuits.
+   `circuits.load` loads from a built-in set of test circuits.
 3. **Boards and compiling.** 1×1 board, placement rules, pins, compiler, library in save data,
-   `ic.compile` and `ic.list`. First fully player-made IC.
+   `circuits.compile`. First fully player-made IC.
 4. **UI.** Side panels for board, pin and package; load dialog; update flow; compile errors shown on
    the board.
 5. **Depth.** 2×1 and 2×2 boards and packages, nested ICs, virtual shape processors and channels inside

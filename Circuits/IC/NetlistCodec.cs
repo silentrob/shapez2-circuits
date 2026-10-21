@@ -1,0 +1,134 @@
+using System;
+using System.IO;
+using System.Text;
+
+namespace Circuits.IC
+{
+    // Turns a netlist into a string and back, for storing in a package's building configuration (and so in
+    // savegames and blueprints). Versioned: decoding must keep reading every version ever written.
+    public static class NetlistCodec
+    {
+        private const int Version = 1;
+
+        // Far beyond any real circuit; only guards against allocating from corrupt counts.
+        private const int MaxCount = 1_000_000;
+
+        public static string Encode(Netlist netlist)
+        {
+            using var stream = new MemoryStream();
+            using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
+            {
+                writer.Write(Version);
+                writer.Write(netlist.Name);
+                writer.Write(netlist.NetCount);
+                for (int side = 0; side < Netlist.SideCount; side++)
+                {
+                    writer.Write((byte)netlist.SideRoles[side]);
+                    writer.Write(netlist.SideNets[side]);
+                }
+
+                writer.Write(netlist.Gates.Length);
+                foreach (Gate gate in netlist.Gates)
+                {
+                    writer.Write((byte)gate.Kind);
+                    writer.Write(gate.Output);
+                    writer.Write(gate.Inputs.Length);
+                    foreach (int input in gate.Inputs)
+                    {
+                        writer.Write(input);
+                    }
+                }
+            }
+
+            return Convert.ToBase64String(stream.ToArray());
+        }
+
+        // Rejects anything malformed rather than handing the simulation a netlist that indexes outside its nets.
+        public static bool TryDecode(string encoded, out Netlist netlist)
+        {
+            netlist = null;
+            if (string.IsNullOrEmpty(encoded))
+            {
+                return false;
+            }
+
+            try
+            {
+                using var reader = new BinaryReader(new MemoryStream(Convert.FromBase64String(encoded)), Encoding.UTF8);
+                if (reader.ReadInt32() != Version)
+                {
+                    return false;
+                }
+
+                string name = reader.ReadString();
+                int netCount = reader.ReadInt32();
+                if (netCount < 0 || netCount > MaxCount)
+                {
+                    return false;
+                }
+
+                var roles = new SideRole[Netlist.SideCount];
+                var nets = new int[Netlist.SideCount];
+                for (int side = 0; side < Netlist.SideCount; side++)
+                {
+                    roles[side] = (SideRole)reader.ReadByte();
+                    nets[side] = reader.ReadInt32();
+                    if (!Enum.IsDefined(typeof(SideRole), roles[side])
+                        || (roles[side] != SideRole.Unused && !IsNet(nets[side], netCount)))
+                    {
+                        return false;
+                    }
+                }
+
+                int gateCount = reader.ReadInt32();
+                if (gateCount < 0 || gateCount > MaxCount)
+                {
+                    return false;
+                }
+
+                var gates = new Gate[gateCount];
+                for (int i = 0; i < gates.Length; i++)
+                {
+                    var kind = (GateKind)reader.ReadByte();
+                    int output = reader.ReadInt32();
+                    int inputCount = reader.ReadInt32();
+                    if (!Enum.IsDefined(typeof(GateKind), kind) || inputCount != InputCount(kind))
+                    {
+                        return false;
+                    }
+
+                    var inputs = new int[inputCount];
+                    for (int j = 0; j < inputs.Length; j++)
+                    {
+                        inputs[j] = reader.ReadInt32();
+                    }
+
+                    if (!IsNet(output, netCount)
+                        || Array.Exists(inputs, input => !IsNet(input, netCount)))
+                    {
+                        return false;
+                    }
+
+                    gates[i] = new Gate(kind, output, inputs);
+                }
+
+                netlist = new Netlist(name, netCount, roles, nets, gates);
+                return true;
+            }
+            catch (Exception e) when (e is FormatException or EndOfStreamException or IOException)
+            {
+                return false;
+            }
+        }
+
+        public static int InputCount(GateKind kind)
+        {
+            return kind == GateKind.Not ? 1 : 2;
+        }
+
+        private static bool IsNet(int net, int netCount)
+        {
+            return net >= 0 && net < netCount;
+        }
+    }
+}

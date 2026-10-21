@@ -62,7 +62,8 @@ namespace Circuits.Kit
             var mirrored = new BuildingDefinition(MirroredId, MirroredConnectors);
             foreach (object data in primary.CustomData.All)
             {
-                if (data is not (IBuildingConnectorData or IBuildingDrawData or IBuildingCustomDrawData))
+                if (data is not (IBuildingConnectorData or IBuildingDrawData or IBuildingCustomDrawData
+                    or IBuildingMirroringDefinition))
                 {
                     mirrored.CustomData.Attach(data);
                 }
@@ -72,7 +73,9 @@ namespace Circuits.Kit
             mirrored.CustomData.Attach(MirroredDrawData);
             mirrored.CustomData.Attach(CopyDrawData(model.CustomData.Get<IBuildingDrawData>(), MirroredDrawData));
 
-            primary.CustomData.Attach(new Mirroring(mirrored, isMirrored: false));
+            // The primary definition is reused on every map load (see AttachingBuildingBuilder), so replace the
+            // previous load's link rather than adding a second.
+            primary.CustomData.AttachOrReplace<IBuildingMirroringDefinition>(new Mirroring(mirrored, isMirrored: false));
             mirrored.CustomData.Attach(new Mirroring(primary, isMirrored: true));
 
             AddInternalVariant.Invoke(group, new object[] { mirrored });

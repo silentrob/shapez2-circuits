@@ -55,6 +55,61 @@ namespace Circuits.Tests
             Assert.Equal(Bit(1), Run(netlist, north: Bit(1), west: Nothing)[(int)Side.East]);
         }
 
+        [Theory]
+        [InlineData("and", 0, 0, 0)]
+        [InlineData("and", 1, 1, 1)]
+        [InlineData("and", 1, 0, 0)]
+        [InlineData("or", 0, 0, 0)]
+        [InlineData("or", 0, 1, 1)]
+        [InlineData("xor", 1, 1, 0)]
+        [InlineData("xor", 1, 0, 1)]
+        [InlineData("nand", 1, 1, 0)]
+        [InlineData("nand", 0, 1, 1)]
+        [InlineData("nand", 0, 0, 1)]
+        [InlineData("nor", 0, 0, 1)]
+        [InlineData("nor", 1, 0, 0)]
+        [InlineData("xnor", 1, 1, 1)]
+        [InlineData("xnor", 0, 0, 1)]
+        [InlineData("xnor", 0, 1, 0)]
+        public void TwoInputCircuitsMatchTheirGates(string circuit, int a, int b, int output)
+        {
+            ISignal[] leaving = Run(TestCircuits.ByName[circuit](), north: Bit(b), west: Bit(a));
+
+            Assert.Equal(Bit(output), leaving[(int)Side.East]);
+        }
+
+        [Theory]
+        [InlineData(1, 0, 0, 1)]
+        [InlineData(0, 1, 0, 0)]
+        [InlineData(1, 0, 1, 0)]
+        [InlineData(0, 1, 1, 1)]
+        public void MuxPicksAUnlessSelectIsOn(int a, int b, int select, int output)
+        {
+            ISignal[] arriving = { Bit(b), Nothing, Bit(select), Bit(a) };
+            var leaving = new ISignal[Netlist.SideCount];
+
+            new NetlistEvaluator(TestCircuits.Mux()).Evaluate(arriving, leaving);
+
+            Assert.Equal(Bit(output), leaving[(int)Side.East]);
+        }
+
+        [Fact]
+        public void BufferPassesAnySignalThroughUnchanged()
+        {
+            ISignal conflict = ConflictSignal.Instance;
+
+            Assert.Same(conflict, Run(TestCircuits.ByName["buffer"](), west: conflict)[(int)Side.East]);
+            Assert.Same(Nothing, Run(TestCircuits.ByName["buffer"](), west: Nothing)[(int)Side.East]);
+        }
+
+        [Fact]
+        public void TheEmptyNetlistDrivesNothing()
+        {
+            ISignal[] leaving = Run(Netlist.Empty, north: Bit(1), west: Bit(1));
+
+            Assert.All(leaving, signal => Assert.Same(Nothing, signal));
+        }
+
         [Fact]
         public void NotGateInvertsTruthiness()
         {

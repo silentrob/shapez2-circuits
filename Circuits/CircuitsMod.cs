@@ -1,5 +1,5 @@
 using System;
-using Circuits.IC;
+using Circuits.IC.Commands;
 using Circuits.IC.Package;
 using Circuits.Kit;
 using Circuits.Latch;
@@ -28,32 +28,41 @@ namespace Circuits
 
         private readonly RewirerHandle MirroredLatchHandle;
         private readonly TwoWayCompatibilityHooks TwoWayHooks;
+        private readonly ICConsoleCommands Commands;
 
         public CircuitsMod(ILogger logger)
         {
             MirroredBuildingBuilder latch = AddLatch(logger);
             MirroredLatchHandle = GameRewirers.AddRewirer(new MirroredLatchRewirer(latch, logger));
-            AddICPackage(logger);
-            TwoWayHooks = CreateTwoWayHooks(logger);
+            BuildingDefinitionGroupId packageGroup = AddICPackage(logger);
+            TwoWayHooks = Optional(
+                () => new TwoWayCompatibilityHooks(),
+                "IC Packages will show connection warnings",
+                logger);
+            Commands = Optional(
+                () => new ICConsoleCommands(packageGroup, logger),
+                "the circuits console commands are unavailable",
+                logger);
         }
 
         public void Dispose()
         {
             GameRewirers.RemoveRewirer(MirroredLatchHandle);
             TwoWayHooks?.Dispose();
+            Commands?.Dispose();
         }
 
-        // The hooks only remove a cosmetic connection warning, so if a game update breaks them the mod carries on
-        // without them rather than stopping the game from loading.
-        private static TwoWayCompatibilityHooks CreateTwoWayHooks(ILogger logger)
+        // For hooks into private game code, which a game update can break: the mod carries on without the
+        // feature rather than stopping the game from loading.
+        private static T Optional<T>(Func<T> create, string consequence, ILogger logger) where T : class
         {
             try
             {
-                return new TwoWayCompatibilityHooks();
+                return create();
             }
             catch (Exception e)
             {
-                logger.Error?.Log($"[Circuits] Connection hooks failed; IC Packages will show connection warnings: {e}");
+                logger.Error?.Log($"[Circuits] Setup failed, so {consequence}: {e}");
                 return null;
             }
         }
@@ -110,12 +119,13 @@ namespace Circuits
             return building;
         }
 
-        // Milestone 1: a 1x1 package with four two-way sides running a fixed half adder.
-        private static void AddICPackage(ILogger logger)
+        // A 1x1 package with four two-way sides, running the circuit in its configuration (empty when placed).
+        private static BuildingDefinitionGroupId AddICPackage(ILogger logger)
         {
             ModFolderLocator resources = ModDirectoryLocator.CreateLocator<CircuitsMod>().SubLocator("Resources");
+            var groupId = new BuildingDefinitionGroupId("CircuitsICPackage1x1Group");
 
-            IBuildingGroupBuilder group = BuildingGroup.Create(new BuildingDefinitionGroupId("CircuitsICPackage1x1Group"))
+            IBuildingGroupBuilder group = BuildingGroup.Create(groupId)
                .WithTitle("building-variant.CircuitsICPackage1x1.title".T())
                .WithDescription("building-variant.CircuitsICPackage1x1.description".T())
                .WithIcon(FileTextureLoader.LoadTextureAsSprite(resources.SubPath("IC_Icon.png"), out _))
@@ -125,7 +135,7 @@ namespace Circuits
 
             IBuildingConnectorData connectors = BuildingSignalTwoWay.SingleTile();
 
-            IBuildingBuilder building = Building.Create(new BuildingDefinitionId("CircuitsICPackage1x1"))
+            IBuildingBuilder package = Building.Create(new BuildingDefinitionId("CircuitsICPackage1x1"))
                .WithConnectorData(connectors)
                .DynamicallyRendering<ICPackageRenderer, ICPackageSimulation, ICPackageDrawData>(new ICPackageDrawData())
                .WithCopiedStaticDrawData(new BuildingDefinitionId("LogicGateAndInternalVariant"))
@@ -133,14 +143,15 @@ namespace Circuits
                .WithoutSimulationConfiguration()
                .WithoutEfficiencyData();
 
-            Netlist netlist = TestCircuits.HalfAdder();
             CustomSimulationBuilding.Register(
-                building,
+                new AttachingBuildingBuilder(package, new ICPackageConfigurationFactory()),
                 group,
                 new UnlockBuildingWithExistingSideUpgradeResearchProgressionExtender(new SideUpgradeUnlocking(AndGateGroup)),
                 new AfterToolbarEntry(AndGateGroup, logger),
-                (definition, _) => new ICPackageSimulationSystem(definition.Id, netlist, logger),
+                (definition, _) => new ICPackageSimulationSystem(definition.Id, logger),
                 new ICPackageModules());
+
+            return groupId;
         }
 
         private static IBuildingConnectorData LatchConnectors(TileDirection data)
