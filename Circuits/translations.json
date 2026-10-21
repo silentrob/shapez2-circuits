@@ -3,6 +3,10 @@
     "building-variant.CircuitsLatch.title": "Latch",
     "building-variant.CircuitsLatch.description": "<gl>Holds</gl> the last signal on its Data input until <gl>Reset</gl> is on. Captures any truthy value: 1, a shape or a color.",
     "building-variant.CircuitsICPackage1x1.title": "IC Package",
-    "building-variant.CircuitsICPackage1x1.description": "Runs an <gl>integrated circuit</gl>. Each side is an input or an output, depending on the circuit. Select packages, then load a circuit with <gl>circuits.load</gl> in the console (F1); <gl>circuits.list</gl> shows the circuits."
+    "building-variant.CircuitsICPackage1x1.description": "Runs an <gl>integrated circuit</gl>. Each side is an input or an output, depending on the circuit. Select packages, then load a circuit with <gl>circuits.load</gl> in the console (F1); <gl>circuits.list</gl> shows the circuits.",
+    "building-variant.CircuitsICInputPin.title": "IC Input Pin",
+    "building-variant.CircuitsICInputPin.description": "Marks an <gl>input</gl> of a circuit board. Place it on a board's edge: that side of the package becomes an input. On the board it sends its <gl>test value</gl>, set like a Constant Signal.",
+    "building-variant.CircuitsICOutputPin.title": "IC Output Pin",
+    "building-variant.CircuitsICOutputPin.description": "Marks an <gl>output</gl> of a circuit board. Place it on a board's edge: that side of the package becomes an output. On the board it shows what reaches it."
   }
 }

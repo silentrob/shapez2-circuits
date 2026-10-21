@@ -7,19 +7,35 @@ namespace Circuits.IC
 
     public enum SideRole { Unused, Input, Output }
 
-    public enum GateKind { And, Or, Xor, Not }
+    // Never reorder or remove: kinds are saved by number. Transistor passes its first input while its second is
+    // truthy; Constant has no inputs and outputs its Value as an IntegerSignal.
+    public enum GateKind { And, Or, Xor, Not, Transistor, Constant }
 
     public sealed class Gate
     {
         public readonly GateKind Kind;
         public readonly int[] Inputs;
         public readonly int Output;
+        public readonly int Value;
 
         public Gate(GateKind kind, int output, params int[] inputs)
         {
             Kind = kind;
             Output = output;
             Inputs = inputs;
+        }
+
+        public static Gate Constant(int output, int value)
+        {
+            return new Gate(output, value);
+        }
+
+        private Gate(int output, int value)
+        {
+            Kind = GateKind.Constant;
+            Output = output;
+            Inputs = Array.Empty<int>();
+            Value = value;
         }
     }
 

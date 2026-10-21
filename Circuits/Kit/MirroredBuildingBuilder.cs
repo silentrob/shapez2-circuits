@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Reflection;
 using ShapezShifter.Flow;
 using ILogger = Core.Logging.ILogger;
 
@@ -12,12 +10,6 @@ namespace Circuits.Kit
     // in the same step, with a vanilla building's mirrored model.
     public class MirroredBuildingBuilder : IBuildingBuilder
     {
-        private static readonly FieldInfo DefinitionsById =
-            typeof(GameBuildings).GetField("_DefinitionsById", BindingFlags.Instance | BindingFlags.NonPublic);
-
-        private static readonly MethodInfo AddInternalVariant =
-            typeof(BuildingDefinitionGroup).GetMethod("AddInternalVariant", BindingFlags.Instance | BindingFlags.NonPublic);
-
         private readonly IBuildingBuilder Primary;
         private readonly BuildingDefinitionId MirroredId;
         private readonly IBuildingConnectorData MirroredConnectors;
@@ -78,9 +70,7 @@ namespace Circuits.Kit
             primary.CustomData.AttachOrReplace<IBuildingMirroringDefinition>(new Mirroring(mirrored, isMirrored: false));
             mirrored.CustomData.Attach(new Mirroring(primary, isMirrored: true));
 
-            AddInternalVariant.Invoke(group, new object[] { mirrored });
-            ((Dictionary<BuildingDefinitionId, IBuildingDefinition>)DefinitionsById.GetValue(gameBuildings))
-               .Add(MirroredId, mirrored);
+            GameBuildingsAccess.Register(gameBuildings, group, mirrored);
 
             Mirrored = mirrored;
             return primary;

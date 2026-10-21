@@ -16,6 +16,8 @@
         <Compile Include="..\Circuits\IC\NetlistEvaluator.cs" Link="IC\NetlistEvaluator.cs" />
         <Compile Include="..\Circuits\IC\TestCircuits.cs" Link="IC\TestCircuits.cs" />
         <Compile Include="..\Circuits\IC\NetlistCodec.cs" Link="IC\NetlistCodec.cs" />
+        <Compile Include="..\Circuits\IC\Compilation\BoardParts.cs" Link="IC\Compilation\BoardParts.cs" />
+        <Compile Include="..\Circuits\IC\Compilation\BoardCompiler.cs" Link="IC\Compilation\BoardCompiler.cs" />
     </ItemGroup>
 
     <!-- The game's signal types and what they depend on, copied next to the tests so they can load. -->

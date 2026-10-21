@@ -6,9 +6,11 @@ namespace Circuits.IC
 {
     // Turns a netlist into a string and back, for storing in a package's building configuration (and so in
     // savegames and blueprints). Versioned: decoding must keep reading every version ever written.
+    //   1: gates And, Or, Xor, Not.
+    //   2: adds Transistor and Constant; a Constant gate is followed by its value.
     public static class NetlistCodec
     {
-        private const int Version = 1;
+        private const int Version = 2;
 
         // Far beyond any real circuit; only guards against allocating from corrupt counts.
         private const int MaxCount = 1_000_000;
@@ -37,6 +39,11 @@ namespace Circuits.IC
                     {
                         writer.Write(input);
                     }
+
+                    if (gate.Kind == GateKind.Constant)
+                    {
+                        writer.Write(gate.Value);
+                    }
                 }
             }
 
@@ -55,7 +62,8 @@ namespace Circuits.IC
             try
             {
                 using var reader = new BinaryReader(new MemoryStream(Convert.FromBase64String(encoded)), Encoding.UTF8);
-                if (reader.ReadInt32() != Version)
+                int version = reader.ReadInt32();
+                if (version < 1 || version > Version)
                 {
                     return false;
                 }
@@ -109,7 +117,9 @@ namespace Circuits.IC
                         return false;
                     }
 
-                    gates[i] = new Gate(kind, output, inputs);
+                    gates[i] = kind == GateKind.Constant
+                        ? Gate.Constant(output, reader.ReadInt32())
+                        : new Gate(kind, output, inputs);
                 }
 
                 netlist = new Netlist(name, netCount, roles, nets, gates);
@@ -123,7 +133,12 @@ namespace Circuits.IC
 
         public static int InputCount(GateKind kind)
         {
-            return kind == GateKind.Not ? 1 : 2;
+            return kind switch
+            {
+                GateKind.Constant => 0,
+                GateKind.Not => 1,
+                _ => 2
+            };
         }
 
         private static bool IsNet(int net, int netCount)

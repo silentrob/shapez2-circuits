@@ -52,6 +52,14 @@ namespace Circuits.IC
 
         private ISignal Compute(Gate gate)
         {
+            switch (gate.Kind)
+            {
+                case GateKind.Constant:
+                    return IntegerSignal.Get(gate.Value);
+                case GateKind.Transistor:
+                    return Nets[gate.Inputs[1]].IsTruthy() ? Nets[gate.Inputs[0]] : NullSignal.Instance;
+            }
+
             bool a = Nets[gate.Inputs[0]].IsTruthy();
             return gate.Kind switch
             {

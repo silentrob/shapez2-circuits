@@ -22,7 +22,7 @@ namespace Circuits.Kit
             IBuildingResearchProgressionExtender research,
             IToolbarEntryInsertLocation toolbarLocation,
             Func<BuildingDefinition, SimulationSystemsDependencies, ISimulationSystem> simulationSystem,
-            IBuildingModules modules)
+            Func<BuildingsModulesLookup, IBuildingModules> sidePanel)
         {
             BuildExtenders();
 
@@ -46,10 +46,10 @@ namespace Circuits.Kit
                     placement.ThenContinueRewiringWith<PlacementToolbarElementData>(
                         result => ToolbarEntry(result, toolbarLocation));
 
-                RewirerChainLink sidePanel = buildings.ThenContinueRewiringWith(
-                    definition => new BuildingModulesExtender(definition, new CustomBuildingsModulesData(modules)));
+                RewirerChainLink modules = buildings.ThenContinueRewiringWith(
+                    definition => new SidePanelExtender(definition, sidePanel));
 
-                IWaitAllRewirers all = AggregatedChain.WaitFor(simulation).And(toolbar).And(sidePanel);
+                IWaitAllRewirers all = AggregatedChain.WaitFor(simulation).And(toolbar).And(modules);
                 all.AfterHijack.Register(OnApplied);
 
                 void OnApplied()
@@ -86,6 +86,29 @@ namespace Circuits.Kit
                 Research.ExtendResearch(gameScenario.UniqueId, gameScenario.Progression, GroupId);
                 Applied.Invoke();
                 return gameScenario;
+            }
+        }
+
+        // As ShapezShifter's BuildingModulesExtender, but the provider is chosen with the lookup in hand, so a
+        // building can borrow a vanilla building's provider (see VanillaSidePanel).
+        private class SidePanelExtender : IBuildingModulesRewirer, IChainableRewirer
+        {
+            private readonly BuildingDefinition Definition;
+            private readonly Func<BuildingsModulesLookup, IBuildingModules> SidePanel;
+            private readonly MultiRegisterEvent Applied = new();
+
+            public IEvent AfterHijack => Applied;
+
+            public SidePanelExtender(BuildingDefinition definition, Func<BuildingsModulesLookup, IBuildingModules> sidePanel)
+            {
+                Definition = definition;
+                SidePanel = sidePanel;
+            }
+
+            public void AddModules(BuildingsModulesLookup modulesLookup)
+            {
+                modulesLookup.AddModule(Definition.Id, Definition, SidePanel(modulesLookup));
+                Applied.Invoke();
             }
         }
 

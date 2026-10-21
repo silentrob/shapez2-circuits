@@ -1,5 +1,7 @@
 using System;
 using Circuits.IC.Commands;
+using Circuits.IC.Compilation;
+using Circuits.IC.Library;
 using Circuits.IC.Package;
 using Circuits.Kit;
 using Circuits.Latch;
@@ -35,12 +37,14 @@ namespace Circuits
             MirroredBuildingBuilder latch = AddLatch(logger);
             MirroredLatchHandle = GameRewirers.AddRewirer(new MirroredLatchRewirer(latch, logger));
             BuildingDefinitionGroupId packageGroup = AddICPackage(logger);
+            AddPins(logger);
+            this.AttachSaveData<CircuitLibrary>();
             TwoWayHooks = Optional(
                 () => new TwoWayCompatibilityHooks(),
                 "IC Packages will show connection warnings",
                 logger);
             Commands = Optional(
-                () => new ICConsoleCommands(packageGroup, logger),
+                () => new ICConsoleCommands(packageGroup, this.GetSaveData<CircuitLibrary>, logger),
                 "the circuits console commands are unavailable",
                 logger);
         }
@@ -119,6 +123,64 @@ namespace Circuits
             return building;
         }
 
+        // Pins mark a board's interface. They are copies of vanilla buildings, so testing a board live uses
+        // the game's own tools: an Input Pin is a Constant Signal (its value dialog sets the test input) and an
+        // Output Pin is a Display (it shows what reaches it). BoardReader tells them apart by their groups.
+        private static void AddPins(ILogger logger)
+        {
+            var constantSignal = new BuildingDefinitionId("ConstantSignalDefaultInternalVariant");
+            AddPin(
+                BoardReader.InputPinGroup,
+                "CircuitsICInputPin",
+                "IC_InputPin_Icon.png",
+                constantSignal,
+                (definition, _) => new AtomicStatelessBuildingSimulationSystem<ConstantSignalSimulation, ConstantSignalConfiguration>(
+                    new ConstantSignalSimulationFactory(),
+                    definition.Id,
+                    logger),
+                logger);
+
+            var display = new BuildingDefinitionId("DisplayDefaultInternalVariant");
+            AddPin(
+                BoardReader.OutputPinGroup,
+                "CircuitsICOutputPin",
+                "IC_OutputPin_Icon.png",
+                display,
+                (definition, _) => new AtomicStatefulBuildingSimulationSystem<DisplaySimulation, DisplaySimulationState>(
+                    new DisplaySimulationFactory(),
+                    definition.Id,
+                    logger),
+                logger);
+        }
+
+        private static void AddPin(
+            BuildingDefinitionGroupId groupId,
+            string name,
+            string icon,
+            BuildingDefinitionId vanilla,
+            Func<BuildingDefinition, SimulationSystemsDependencies, ISimulationSystem> simulation,
+            ILogger logger)
+        {
+            ModFolderLocator resources = ModDirectoryLocator.CreateLocator<CircuitsMod>().SubLocator("Resources");
+            IBuildingGroupBuilder group = BuildingGroup.Create(groupId)
+               .WithTitle($"building-variant.{name}.title".T())
+               .WithDescription($"building-variant.{name}.description".T())
+               .WithIcon(FileTextureLoader.LoadTextureAsSprite(resources.SubPath(icon), out _))
+               .AsNonTransportableBuilding()
+               .WithPreferredPlacement(DefaultPreferredPlacementMode.Single)
+               // A board's notches are where its pins naturally go, as space belt ports use a platform's notches.
+               .AllowedOnNotches()
+               .WithDefaultStructureOverview();
+
+            CustomSimulationBuilding.Register(
+                new VanillaCloneBuilder(vanilla, new BuildingDefinitionId(name)),
+                group,
+                new UnlockBuildingWithExistingSideUpgradeResearchProgressionExtender(new SideUpgradeUnlocking(AndGateGroup)),
+                new AfterToolbarEntry(AndGateGroup, logger),
+                simulation,
+                lookup => VanillaSidePanel.Of(lookup, vanilla));
+        }
+
         // A 1x1 package with four two-way sides, running the circuit in its configuration (empty when placed).
         private static BuildingDefinitionGroupId AddICPackage(ILogger logger)
         {
@@ -149,7 +211,7 @@ namespace Circuits
                 new UnlockBuildingWithExistingSideUpgradeResearchProgressionExtender(new SideUpgradeUnlocking(AndGateGroup)),
                 new AfterToolbarEntry(AndGateGroup, logger),
                 (definition, _) => new ICPackageSimulationSystem(definition.Id, logger),
-                new ICPackageModules());
+                _ => new ICPackageModules());
 
             return groupId;
         }

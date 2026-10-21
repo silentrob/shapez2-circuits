@@ -84,9 +84,14 @@ boards, so belt readers, belt filters and pipe gates can never be part of an IC.
 
 ### 3.3 Pins and sides
 
-Each **chunk edge on the board's outline is one pin slot**. A pin occupies a slot by being placed on the
-board's outermost tile row along that chunk edge, anywhere along it. A slot holds at most one pin, an
-input or an output; compile fails if a slot has two. An empty slot is an unused connection.
+Each **chunk edge on the board's outline is one pin slot**. A chunk's buildable area is a 14×14 square
+plus a notch at the middle of each side, where space belts attach. A pin occupies a slot by being placed
+in that side's **notch** (the natural place, as belt ports use notches; pins are allowed on notches) or on
+the square's outermost row along that edge. Edges come from the game's own tile data
+(`IslandChunkData`: buildable and notch flags), in the platform's frame: a pin in a notch belongs to the
+side the notch points to; on the square, to the one direction in which the next tile is off the square,
+notch tiles counting as off it. A slot holds at most one pin, an input or an output; compile fails if a
+slot has two. An empty slot is an unused connection.
 
 Position, not a number, decides where a pin comes out, so the board reads like the package: the pin on
 the north edge of a 1×1 board is the package's north connection.
@@ -326,8 +331,17 @@ Each one ends with something playable.
    configuration path, state, evaluator matches vanilla.
 2. **Netlists in packages.** Netlist in the package configuration, saved and copied by blueprints.
    `circuits.load` loads from a built-in set of test circuits.
-3. **Boards and compiling.** 1×1 board, placement rules, pins, compiler, library in save data,
-   `circuits.compile`. First fully player-made IC.
+3. **Boards and compiling.** First fully player-made IC. In two parts:
+   - **3a, compiling (built).** Pins, compiler, library in save data, `circuits.compile`. Any 1×1-chunk
+     platform serves as a board. Pins are copies of vanilla buildings (`Kit/VanillaCloneBuilder`), running
+     the vanilla simulation, renderer and side panel: an Input Pin is a Constant Signal, so its value
+     dialog sets the board's test input, and an Output Pin is a Display. A pin's side is the notch or edge it
+     sits on (section 3.3); a failed compile logs the board's tile map. Compiles wires, bridges, AND, OR, XOR, NOT,
+     Transistor and number constants; displays are skipped. Refused with a message for now: feedback
+     loops, latches, Compare, buttons, shape and color constants, virtual processors, transmitters and
+     nested packages.
+   - **3b, the board platform.** The dedicated IC Board island type, its placement rules (only
+     signal buildings; pins only on boards) and its name and GUID.
 4. **UI.** Side panels for board, pin and package; load dialog; update flow; compile errors shown on
    the board.
 5. **Depth.** 2×1 and 2×2 boards and packages, nested ICs, virtual shape processors and channels inside
