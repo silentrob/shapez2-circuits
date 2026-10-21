@@ -139,7 +139,7 @@ namespace Circuits.IC.Commands
 
             CircuitEntry entry = Library().Store(name, NetlistCodec.Encode(result.Netlist));
             context.Output(
-                $"Compiled {entry.Name} (revision {entry.Revision}): {Describe(result.Netlist)}, "
+                $"Compiled {entry.Name} (revision {entry.Revision}): {result.Netlist.DescribeSides()}, "
                 + $"{result.Netlist.Gates.Length} gate(s). Load it with circuits.load {entry.Name}.");
         }
 
@@ -149,26 +149,28 @@ namespace Circuits.IC.Commands
             context.Output(library.Count == 0 ? "Library: empty. circuits.compile adds to it." : "Library:");
             foreach (CircuitEntry entry in library)
             {
-                string described = NetlistCodec.TryDecode(entry.Netlist, out Netlist netlist) ? Describe(netlist) : "unreadable";
+                string described = NetlistCodec.TryDecode(entry.Netlist, out Netlist netlist) ? netlist.DescribeSides() : "unreadable";
                 context.Output($"  {entry.Name} (revision {entry.Revision}): {described}");
             }
 
             context.Output("Test circuits:");
             foreach (KeyValuePair<string, Func<Netlist>> circuit in TestCircuits.ByName)
             {
-                context.Output($"  {circuit.Key}: {Describe(circuit.Value())}");
+                context.Output($"  {circuit.Key}: {circuit.Value().DescribeSides()}");
             }
         }
 
-        // The library first, so a compiled circuit can take a test circuit's name.
-        private bool TryFind(string name, out Netlist netlist)
+        // The library first, so a compiled circuit can take a test circuit's name. Test circuits have revision 0.
+        private bool TryFind(string name, out Netlist netlist, out int revision)
         {
             CircuitEntry entry = Library().Find(name);
             if (entry != null)
             {
+                revision = entry.Revision;
                 return NetlistCodec.TryDecode(entry.Netlist, out netlist);
             }
 
+            revision = 0;
             if (TestCircuits.ByName.TryGetValue(name, out Func<Netlist> circuit))
             {
                 netlist = circuit();
@@ -182,7 +184,7 @@ namespace Circuits.IC.Commands
         private void Load(DebugConsole.CommandContext context, Player player, PlayerActionManager actions)
         {
             string name = context.GetString(0);
-            if (!TryFind(name, out Netlist netlist))
+            if (!TryFind(name, out Netlist netlist, out int revision))
             {
                 context.Output($"No circuit '{name}'. circuits.list shows them.");
                 return;
@@ -201,7 +203,7 @@ namespace Circuits.IC.Commands
                .Select(package => new PlaceBuildingPayload(
                     package.Island.Id,
                     package.Definition,
-                    new ICPackageConfiguration(netlist),
+                    new ICPackageConfiguration(netlist, revision),
                     package.Transform_I))
                .ToList();
 
@@ -223,10 +225,10 @@ namespace Circuits.IC.Commands
 
             foreach (BuildingModel package in packages)
             {
-                Netlist netlist = package.Configuration is ICPackageConfiguration configuration
-                    ? configuration.Netlist
-                    : Netlist.Empty;
-                context.Output($"{netlist.Name}: {Describe(netlist)}");
+                var configuration = package.Configuration as ICPackageConfiguration;
+                Netlist netlist = configuration?.Netlist ?? Netlist.Empty;
+                string revision = configuration?.Revision > 0 ? $" (revision {configuration.Revision})" : "";
+                context.Output($"{netlist.Name}{revision}: {netlist.DescribeSides()}");
             }
         }
 
@@ -238,15 +240,6 @@ namespace Circuits.IC.Commands
         private bool IsPackage(BuildingModel building)
         {
             return building.Definition.CustomData.TryGet(out IBuildingDefinitionGroup group) && group.Id.Equals(PackageGroup);
-        }
-
-        private static string Describe(Netlist netlist)
-        {
-            IEnumerable<string> sides = Enumerable.Range(0, Netlist.SideCount)
-               .Where(side => netlist.SideRoles[side] != SideRole.Unused)
-               .Select(side => $"{(Side)side} {(netlist.SideRoles[side] == SideRole.Input ? "in" : "out")}");
-            string described = string.Join(", ", sides);
-            return described.Length == 0 ? "no connections" : described;
         }
     }
 }

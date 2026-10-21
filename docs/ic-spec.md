@@ -239,8 +239,15 @@ The board is an ordinary platform, so building on it uses the normal camera and 
 - **Pin side panel:** on input pins, the test value.
 - **Hotkey:** jump the camera between boards (milestone 5).
 
-Adding side-panel buttons and dialogs means hooking the game's HUD, which ShapezShifter does not cover.
-Milestones 2 and 3 therefore start with **console commands** (F1), and the UI follows in milestone 4.
+**The game's side panel modules cover most of this without hooking the HUD.** A building's side panel
+provider can return, besides the editor-only wire rows: `HUDSidePanelModuleInfoText(text)`,
+`HUDSidePanelModuleGenericSection(icon, title, description)`, `HUDSidePanelModuleGenericButton(text,
+action)` and `HUDSidePanelModuleDropdownSelector(values, current, onChange)`. A dropdown of circuits plus a
+Load button is the package's load UI; a button is the board's Compile. Text is fixed when the panel opens,
+so live values still need a module of our own. Since milestone 3a, a package's panel shows its circuit's
+name, revision and sides as a section.
+
+Milestones 2 and 3 start with **console commands** (F1), and the UI follows in milestone 4.
 They work on the selected buildings and follow ShapezShifter's convention of prefixing a mod's commands
 with its name:
 

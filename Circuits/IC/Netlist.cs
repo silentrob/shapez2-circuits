@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace Circuits.IC
 {
@@ -71,6 +72,16 @@ namespace Circuits.IC
             SideRoles = sideRoles;
             SideNets = sideNets;
             Gates = gates;
+        }
+
+        // "West in, East out": what each used side does.
+        public string DescribeSides()
+        {
+            string[] sides = Enumerable.Range(0, SideCount)
+               .Where(side => SideRoles[side] != SideRole.Unused)
+               .Select(side => $"{(Side)side} {(SideRoles[side] == SideRole.Input ? "in" : "out")}")
+               .ToArray();
+            return sides.Length == 0 ? "no connections" : string.Join(", ", sides);
         }
     }
 }
