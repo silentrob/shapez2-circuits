@@ -34,7 +34,9 @@ namespace Circuits.IC.Compilation
     //   2. Bind pins to package sides, and gates to the nets on their connectors.
     //   3. Copy in the firmware of chips on the board: their gates join the board's, on the board's nets where
     //      the chip connects and on nets of their own inside it.
-    //   4. Order gates so each comes after the gates driving its inputs. Feedback loops are refused for now.
+    //   4. Order gates so each comes after the gates driving its inputs. A feedback loop is cut at one gate,
+    //      whose inputs closing the loop read the previous tick's value, as the game delays a loop by one tick
+    //      (measured on boards: a ring of three NOT gates flips every tick, as one NOT on itself does).
     public static class BoardCompiler
     {
         public static CompileResult Compile(string name, IReadOnlyList<Part> parts)
@@ -165,7 +167,11 @@ namespace Circuits.IC.Compilation
                     ? gate.Signal != null
                         ? Gate.Constant(map[gate.Output], gate.Signal)
                         : Gate.Constant(map[gate.Output], gate.Value)
-                    : new Gate(gate.Kind, gate.Outputs.Select(net => map[net]).ToArray(), gate.Inputs.Select(net => map[net]).ToArray());
+                    : new Gate(
+                        gate.Kind,
+                        gate.Outputs.Select(net => map[net]).ToArray(),
+                        gate.Inputs.Select(net => map[net]).ToArray(),
+                        gate.Delayed);
                 gates.Add((copy, package));
             }
         }
@@ -319,9 +325,11 @@ namespace Circuits.IC.Compilation
                 readers[i] = new List<int>();
             }
 
+            var current = gates.Select(entry => entry.Gate).ToArray();
             for (int i = 0; i < gates.Count; i++)
             {
-                foreach (int input in gates[i].Gate.Inputs.Distinct())
+                // Inputs already cut (inside a nested chip) wait for nothing.
+                foreach (int input in current[i].Inputs.Where((_, j) => !current[i].IsDelayed(j)).Distinct())
                 {
                     if (drivers.TryGetValue(input, out List<int> list))
                     {
@@ -334,26 +342,45 @@ namespace Circuits.IC.Compilation
                 }
             }
 
+            var done = new bool[gates.Count];
             var ready = new Queue<int>(Enumerable.Range(0, gates.Count).Where(i => waitingOn[i] == 0));
             var ordered = new List<Gate>();
-            while (ready.Count > 0)
+            while (ordered.Count < gates.Count)
             {
+                if (ready.Count == 0)
+                {
+                    // Only loops are left: cut the first waiting gate (in board order, so a rebuild cuts the same
+                    // place). Its inputs still driven by waiting gates read the previous tick.
+                    int cut = Enumerable.Range(0, gates.Count).First(i => !done[i]);
+                    int delayed = 0;
+                    for (int input = 0; input < current[cut].Inputs.Length; input++)
+                    {
+                        if (drivers.TryGetValue(current[cut].Inputs[input], out List<int> list) && list.Any(driver => !done[driver]))
+                        {
+                            delayed |= 1 << input;
+                        }
+                    }
+
+                    current[cut] = current[cut].WithDelayed(delayed);
+                    waitingOn[cut] = 0;
+                    ready.Enqueue(cut);
+                }
+
                 int gate = ready.Dequeue();
-                ordered.Add(gates[gate].Gate);
+                if (done[gate])
+                {
+                    continue;
+                }
+
+                done[gate] = true;
+                ordered.Add(current[gate]);
                 foreach (int reader in readers[gate])
                 {
-                    if (--waitingOn[reader] == 0)
+                    if (!done[reader] && --waitingOn[reader] == 0)
                     {
                         ready.Enqueue(reader);
                     }
                 }
-            }
-
-            if (ordered.Count < gates.Count)
-            {
-                IEnumerable<string> looped = Enumerable.Range(0, gates.Count).Where(i => waitingOn[i] > 0)
-                   .Select(i => gates[i].Part.Label);
-                errors.Add($"Feedback loops are not supported yet. These gates are on one: {string.Join(", ", looped)}.");
             }
 
             return ordered.ToArray();

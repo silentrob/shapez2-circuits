@@ -229,10 +229,9 @@ Rules, matching vanilla so a package behaves exactly like its board:
   saved with the game under a fixed `SyncableIdentifier` (never renamed).
 - **Latches need no loops.** A latch is a gate with a stored value, not a feedback loop: inside a package
   it is a stateful gate whose value lives in the package state. It can come before general loops.
-- **Matching the board's loop timing.** Where vanilla delays a value by a tick inside a loop depends on
-  its update order, so before loops are compiled, reference loops are built on a board (an SR latch from
-  two NOR gates, a self-toggling NOT, a two-gate ring) and their tick-by-tick output recorded; the
-  evaluator's cut must reproduce them, and they become its tests.
+- **Matching the board's loop timing.** Reference loops built on a board (a NOT feeding itself, a ring of
+  three NOTs, an SR latch from two NOR gates) showed a loop is delayed by one tick at one point; their
+  behaviour is the evaluator's tests (`FeedbackLoopTests`; milestone 5).
 
 The evaluator is plain arrays, built once, with no allocation per tick and no map access. Shape
 operations and channel access get their dependencies (shape registry, channel registry) from the
@@ -505,6 +504,16 @@ Each one ends with something playable.
      number, right shifts fill with zeros, a negative amount shifts the other way, sums wrap. Netlist codec
      v6. Masking with shapes was considered and set aside: shapes have a part and a colour per quadrant and
      layer, and converting them to and from numbers is far more complex than an integer mask.
+   - **Feedback loops (built).** Measured on a board 2026-10-22: a NOT feeding itself flips every tick (about six
+     times a second), a ring of three NOTs flips at the same speed, and an SR latch of two NOR gates (OR then
+     NOT) sets, holds and resets, settling without flicker when both inputs drop together. So the game
+     delays a loop by one tick at one point, not one tick per gate. The compiler orders gates as before and,
+     when only loops are left, cuts the first waiting gate in board order (so a rebuild cuts the same place):
+     its inputs still driven by waiting gates read their net's value from the end of the previous tick. Each
+     gate records its cut inputs (netlist codec v7); the evaluator keeps each cut net's previous value, saved
+     in the package state (v4) like latch values. A nested chip keeps its own cuts. Which of two equally
+     valid outcomes an SR latch settles on when both inputs drop at once can depend on where the cut is, so
+     it may differ from the board in that one case.
 6. **Release.** Package models, translations, Workshop page using the ShapezShifter logo, compatibility
    notes.
 

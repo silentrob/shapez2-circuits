@@ -178,28 +178,6 @@ namespace Circuits.Tests
             Assert.False(result.Succeeded);
         }
 
-        [Fact]
-        public void FeedbackLoopsAreRefusedForNow()
-        {
-            // Two NOTs in a ring: (1,0) feeds (2,0), whose output runs south and back round through wires into
-            // (1,0)'s input.
-            var parts = new List<Part>
-            {
-                Gate(PartKind.Not, 1, 0, outFacing: Facing.East, Facing.West),
-                Gate(PartKind.Not, 2, 0, outFacing: Facing.South, Facing.West),
-                Wire(2, 1, Facing.North, Facing.West),
-                Wire(1, 1, Facing.East, Facing.West),
-                Wire(0, 1, Facing.East, Facing.North),
-                Wire(0, 0, Facing.South, Facing.East),
-                Pin(PartKind.OutputPin, Side.East, 5, 5, Facing.West)
-            };
-
-            CompileResult result = BoardCompiler.Compile("Board", parts);
-
-            Assert.False(result.Succeeded);
-            Assert.Contains(result.Errors, error => error.Contains("Feedback loops"));
-        }
-
         private static Part Pin(PartKind kind, Side side, int x, int y, Facing facing)
         {
             PortKind port = kind == PartKind.InputPin ? PortKind.Out : PortKind.In;

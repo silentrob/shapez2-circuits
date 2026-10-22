@@ -13,9 +13,10 @@ namespace Circuits.IC
     //      and a gate with two outputs ends with the second.
     //   5: adds the Latch gate.
     //   6: adds the integer gates.
+    //   7: a gate other than a Constant ends with which of its inputs read the previous tick (a byte of bits).
     public static class NetlistCodec
     {
-        private const int Version = 6;
+        private const int Version = 7;
 
         // Far beyond any real circuit; only guards against allocating from corrupt counts.
         private const int MaxCount = 1_000_000;
@@ -56,6 +57,11 @@ namespace Circuits.IC
                     for (int extra = 1; extra < gate.Outputs.Length; extra++)
                     {
                         writer.Write(gate.Outputs[extra]);
+                    }
+
+                    if (gate.Kind != GateKind.Constant)
+                    {
+                        writer.Write((byte)gate.Delayed);
                     }
                 }
             }
@@ -158,7 +164,8 @@ namespace Circuits.IC
                         }
                     }
 
-                    gates[i] = new Gate(kind, outputs, inputs);
+                    int delayed = version >= 7 ? reader.ReadByte() : 0;
+                    gates[i] = new Gate(kind, outputs, inputs, delayed);
                 }
 
                 netlist = new Netlist(name, shape, netCount, roles, nets, gates);

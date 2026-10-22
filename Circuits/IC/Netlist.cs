@@ -52,16 +52,32 @@ namespace Circuits.IC
         public readonly int Value;
         public readonly string Signal;
 
+        // Inputs (a bit each) that read their net as it was at the end of the previous tick: where a feedback
+        // loop is cut, as the game delays a loop by one tick at one point (section 3.8 of the spec).
+        public readonly int Delayed;
+
         public int Output => Outputs[0];
 
         public Gate(GateKind kind, int output, params int[] inputs)
             : this(kind, new[] { output }, inputs) { }
 
-        public Gate(GateKind kind, int[] outputs, int[] inputs)
+        public Gate(GateKind kind, int[] outputs, int[] inputs, int delayed = 0)
         {
             Kind = kind;
             Outputs = outputs;
             Inputs = inputs;
+            Delayed = delayed;
+        }
+
+        public bool IsDelayed(int input)
+        {
+            return (Delayed & (1 << input)) != 0;
+        }
+
+        // This gate with more of its inputs reading the previous tick.
+        public Gate WithDelayed(int delayed)
+        {
+            return Kind == GateKind.Constant ? this : new Gate(Kind, Outputs, Inputs, Delayed | delayed);
         }
 
         public static Gate Constant(int output, int value)
@@ -128,6 +144,13 @@ namespace Circuits.IC
     {
         // How many gates keep a value between ticks (latches), which a package saves.
         public int Latches => Gates.Count(gate => gate.Kind == GateKind.Latch);
+
+        // The nets read as they were at the end of the previous tick (feedback loops), in order, which a package
+        // saves.
+        public int[] DelayedNets => Gates
+           .SelectMany(gate => gate.Inputs.Where((_, input) => gate.IsDelayed(input)))
+           .Distinct()
+           .ToArray();
 
         // A 1x1 package's connections.
         public const int SideCount = 4;

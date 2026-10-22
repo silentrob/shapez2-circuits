@@ -12,10 +12,11 @@ namespace Circuits.IC.Package
     //   1: four connections (1x1 packages only).
     //   2: MaxConnections connections.
     //   3: adds what each latch in the firmware holds, after the connections.
+    //   4: adds each feedback loop's value from the previous tick, after the latches.
     [SyncableIdentifier("Circuits.ICPackageState")]
     public class ICPackageSimulationState : ISimulationState
     {
-        private const int Version = 3;
+        private const int Version = 4;
 
         public const int MaxConnections = 8;
 
@@ -24,6 +25,9 @@ namespace Circuits.IC.Package
 
         // What each latch in the firmware holds (see NetlistEvaluator.Held); sized by the simulation.
         public ISignal[] Held = Array.Empty<ISignal>();
+
+        // Each feedback loop's value from the previous tick (see NetlistEvaluator.Previous); sized likewise.
+        public ISignal[] Previous = Array.Empty<ISignal>();
 
         // A state saves through the input attached to it. The simulation attaches one to each connection it uses;
         // these keep the rest (a smaller package's) saveable.
@@ -47,18 +51,31 @@ namespace Circuits.IC.Package
 
             if (version >= 3)
             {
-                int latches = Held.Length;
-                visitor.SyncInt_4(ref latches);
-                if (latches != Held.Length)
-                {
-                    Held = new ISignal[latches];
-                }
-
-                for (int slot = 0; slot < latches; slot++)
-                {
-                    visitor.GetSerializer<ISignal>().Sync(ref Held[slot]);
-                }
+                Held = SyncSignals(visitor, Held);
             }
+
+            if (version >= 4)
+            {
+                Previous = SyncSignals(visitor, Previous);
+            }
+        }
+
+        // Fills the array in place when its size matches, so a simulation already holding it sees what was read.
+        private static ISignal[] SyncSignals(ISerializationVisitor visitor, ISignal[] signals)
+        {
+            int count = signals.Length;
+            visitor.SyncInt_4(ref count);
+            if (count != signals.Length)
+            {
+                signals = new ISignal[count];
+            }
+
+            for (int slot = 0; slot < count; slot++)
+            {
+                visitor.GetSerializer<ISignal>().Sync(ref signals[slot]);
+            }
+
+            return signals;
         }
     }
 }
