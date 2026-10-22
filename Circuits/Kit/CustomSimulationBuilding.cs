@@ -14,6 +14,8 @@ namespace Circuits.Kit
     // but with the simulation system supplied by the caller. AtomicBuildings always registers the game's
     // ConnectableBuildingSimulation, which binds connectors by their declared direction; buildings that
     // need their own connectable simulation (IC packages' two-way sides) register through this instead.
+    // A building with a mirrored variant (see VanillaCloneBuilder) gets the simulation and side panel for both.
+    // With no toolbar location, the building stays usable (saves, blueprints) but cannot be picked to place.
     public static class CustomSimulationBuilding
     {
         public static void Register(
@@ -42,14 +44,22 @@ namespace Circuits.Kit
                     buildings.ThenContinueRewiringWith<BuildingPlacementResult>(
                         definition => new DefaultBuildingPlacementExtender(definition));
 
-                RewirerChainLink<PlacementToolbarElementData> toolbar =
-                    placement.ThenContinueRewiringWith<PlacementToolbarElementData>(
-                        result => ToolbarEntry(result, toolbarLocation));
-
                 RewirerChainLink modules = buildings.ThenContinueRewiringWith(
                     definition => new SidePanelExtender(definition, sidePanel));
 
-                IWaitAllRewirers all = AggregatedChain.WaitFor(simulation).And(toolbar).And(modules);
+                IWaitAllRewirers all;
+                if (toolbarLocation != null)
+                {
+                    RewirerChainLink<PlacementToolbarElementData> toolbar =
+                        placement.ThenContinueRewiringWith<PlacementToolbarElementData>(
+                            result => ToolbarEntry(result, toolbarLocation));
+                    all = AggregatedChain.WaitFor(simulation).And(toolbar).And(modules);
+                }
+                else
+                {
+                    all = AggregatedChain.WaitFor(simulation).And(placement).And(modules);
+                }
+
                 all.AfterHijack.Register(OnApplied);
 
                 void OnApplied()
@@ -58,6 +68,13 @@ namespace Circuits.Kit
                     BuildExtenders();
                 }
             }
+        }
+
+        private static BuildingDefinition MirroredVariant(BuildingDefinition definition)
+        {
+            return definition.CustomData.TryGet(out IBuildingMirroringDefinition mirroring) && !mirroring.IsMirrored
+                ? mirroring.MirroredDefinition as BuildingDefinition
+                : null;
         }
 
         private static ToolbarRewirer ToolbarEntry(BuildingPlacementResult placement, IToolbarEntryInsertLocation location)
@@ -107,7 +124,13 @@ namespace Circuits.Kit
 
             public void AddModules(BuildingsModulesLookup modulesLookup)
             {
-                modulesLookup.AddModule(Definition.Id, Definition, SidePanel(modulesLookup));
+                IBuildingModules provider = SidePanel(modulesLookup);
+                modulesLookup.AddModule(Definition.Id, Definition, provider);
+                if (MirroredVariant(Definition) is { } mirrored)
+                {
+                    modulesLookup.AddModule(mirrored.Id, mirrored, provider);
+                }
+
                 Applied.Invoke();
             }
         }
@@ -133,6 +156,11 @@ namespace Circuits.Kit
                 SimulationSystemsDependencies dependencies)
             {
                 simulationSystems.Add(Create(Definition, dependencies));
+                if (MirroredVariant(Definition) is { } mirrored)
+                {
+                    simulationSystems.Add(Create(mirrored, dependencies));
+                }
+
                 Applied.Invoke();
             }
         }

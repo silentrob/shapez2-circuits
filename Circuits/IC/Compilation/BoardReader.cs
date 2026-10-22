@@ -19,6 +19,8 @@ namespace Circuits.IC.Compilation
     {
         public static readonly BuildingDefinitionGroupId InputPinGroup = new("CircuitsICInputPinGroup");
         public static readonly BuildingDefinitionGroupId OutputPinGroup = new("CircuitsICOutputPinGroup");
+        public static readonly BuildingDefinitionGroupId InputNotchPinGroup = new("CircuitsICInputNotchPinGroup");
+        public static readonly BuildingDefinitionGroupId OutputNotchPinGroup = new("CircuitsICOutputNotchPinGroup");
 
         private static readonly BuildingDefinitionId Bridge = new("WireDefaultBridgeInternalVariant");
 
@@ -33,7 +35,9 @@ namespace Circuits.IC.Compilation
             ["LogicGateIfVariant"] = PartKind.Transistor,
             ["ConstantSignalDefaultVariant"] = PartKind.Constant,
             [InputPinGroup.Id] = PartKind.InputPin,
-            [OutputPinGroup.Id] = PartKind.OutputPin
+            [OutputPinGroup.Id] = PartKind.OutputPin,
+            [InputNotchPinGroup.Id] = PartKind.InputPin,
+            [OutputNotchPinGroup.Id] = PartKind.OutputPin
         };
 
         private const int ChunkTiles = 20;
@@ -79,7 +83,8 @@ namespace Circuits.IC.Compilation
                     case PartKind.InputPin:
                     case PartKind.OutputPin:
                         IslandChunkData chunk = layout.GetChunk_UNSAFE_I(building.Transform_I.Position);
-                        if (TryEdge(chunk, tile, out Side side, out string problem))
+                        bool notchOnly = group == InputNotchPinGroup.Id || group == OutputNotchPinGroup.Id;
+                        if (TryEdge(chunk, tile, notchOnly, out Side side, out string problem))
                         {
                             parts.Add(new Part(kind, label, ports, side));
                         }
@@ -182,8 +187,7 @@ namespace Circuits.IC.Compilation
             foreach (BuildingModel building in board.Buildings)
             {
                 ChunkTileCoordinate tile = building.Transform.Position.ToChunkCoordinate(board.Transform);
-                bool pin = building.Definition.CustomData.TryGet(out IBuildingDefinitionGroup group)
-                           && (group.Id.Equals(InputPinGroup) || group.Id.Equals(OutputPinGroup));
+                bool pin = building.Definition.CustomData.TryGet(out IBuildingDefinitionGroup group) && IsPinGroup(group.Id);
                 occupied[(tile.x, tile.y)] = pin ? 'P' : 'B';
             }
 
@@ -202,17 +206,24 @@ namespace Circuits.IC.Compilation
             }
         }
 
-        // The board edge a tile is on. In a notch (where space belts attach, mid-side): the side the notch points
+        // The board edge a tile is on (for a notch pin, its wire end). In a notch (where space belts attach, mid-side): the side the notch points
         // to. On the main square: the one direction in which the next tile is off the square, counting notch
         // tiles as off it, since a pin at the middle of an edge sits right beside its notch. North is towards
         // smaller y.
-        private static bool TryEdge(IslandChunkData chunk, ChunkTileCoordinate tile, out Side side, out string problem)
+        private static bool TryEdge(IslandChunkData chunk, ChunkTileCoordinate tile, bool notchOnly, out Side side, out string problem)
         {
             ChunkDirection? notch = chunk.GetNotchDirection_UNSAFE_L(new ChunkTileCoordinate(tile.x, tile.y, 0));
             if (notch.HasValue && TrySideOf(notch.Value, out side))
             {
                 problem = null;
                 return true;
+            }
+
+            if (notchOnly)
+            {
+                side = Side.North;
+                problem = "must fill one of the board's notches, the gaps in the middle of each edge.";
+                return false;
             }
 
             (Side Side, int Dx, int Dy)[] outward =
@@ -235,6 +246,12 @@ namespace Circuits.IC.Compilation
                 _ => "is in a corner; move it along the edge so it belongs to one side."
             };
             return problem == null;
+        }
+
+        public static bool IsPinGroup(BuildingDefinitionGroupId group)
+        {
+            return group.Equals(InputPinGroup) || group.Equals(OutputPinGroup)
+                   || group.Equals(InputNotchPinGroup) || group.Equals(OutputNotchPinGroup);
         }
 
         private static bool IsBuildable(IslandChunkData chunk, int x, int y, short z)

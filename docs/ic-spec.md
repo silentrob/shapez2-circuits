@@ -404,6 +404,14 @@ Each one ends with something playable.
 
    Considered and not chosen: chips following a board automatically, auto-building on every change, and
    saving a box selection of the board's contents like a blueprint.
+4b. **Board look.** Decided 2026-10-22: the board stays 14×14 (one chunk can't shrink in space view), and
+   looks like a small-scale activity instead: a Shapez-styled circuit board.
+   1. **Notch pins (built).** 4×1 Input and Output Pins that fill a notch, one per side, with the wire at one
+      end and a mirrored variant (F) for the other (`IC/Board/PinModel`, `Kit/ReshapedCloneBuilder`: a vanilla
+      Constant Signal or Display in a new shape and model, its value drawn smaller and centred in a bezel).
+      Only notches count for them. The 1×1 pins stay registered for existing boards, off the toolbar.
+   2. **Board surface (next).** A thinner frame through `ChunkPlatformDrawingContext` and a PCB overlay mesh
+      through the island's `IslandMeshDrawer.Data`; the floor material itself is shared by every platform.
 5. **Depth.** 2×1 and 2×2 boards and packages, nested ICs, virtual shape processors and channels inside
    ICs, the jump-to-board hotkey.
 6. **Release.** Package models, translations, Workshop page using the ShapezShifter logo, compatibility

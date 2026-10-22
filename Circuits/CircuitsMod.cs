@@ -147,43 +147,80 @@ namespace Circuits
         // Pins mark a board's interface. They are copies of vanilla buildings, so testing a board live uses
         // the game's own tools: an Input Pin is a Constant Signal (its value dialog sets the test input) and an
         // Output Pin is a Display (it shows what reaches it). BoardReader tells them apart by their groups.
+        // Notch pins are 4x1, filling a board notch, with the wire at one end (F flips the end). The first,
+        // 1x1 pins stay registered for boards and firmware that already use them, but are off the toolbar.
         private static void AddPins(IToolbarEntryInsertLocation toolbar, ILogger logger)
         {
             var constantSignal = new BuildingDefinitionId("ConstantSignalDefaultInternalVariant");
+            Func<BuildingDefinition, SimulationSystemsDependencies, ISimulationSystem> constantSimulation =
+                (definition, _) => new AtomicStatelessBuildingSimulationSystem<ConstantSignalSimulation, ConstantSignalConfiguration>(
+                    new ConstantSignalSimulationFactory(),
+                    definition.Id,
+                    logger);
+            var display = new BuildingDefinitionId("DisplayDefaultInternalVariant");
+            Func<BuildingDefinition, SimulationSystemsDependencies, ISimulationSystem> displaySimulation =
+                (definition, _) => new AtomicStatefulBuildingSimulationSystem<DisplaySimulation, DisplaySimulationState>(
+                    new DisplaySimulationFactory(),
+                    definition.Id,
+                    logger);
+
+            AddPin(
+                BoardReader.InputNotchPinGroup,
+                "CircuitsICInputNotchPin",
+                "IC_InputPin_Icon.png",
+                NotchPin(constantSignal, "CircuitsICInputNotchPin", input: true),
+                constantSignal,
+                constantSimulation,
+                toolbar);
+            AddPin(
+                BoardReader.OutputNotchPinGroup,
+                "CircuitsICOutputNotchPin",
+                "IC_OutputPin_Icon.png",
+                NotchPin(display, "CircuitsICOutputNotchPin", input: false),
+                display,
+                displaySimulation,
+                toolbar);
+
             AddPin(
                 BoardReader.InputPinGroup,
                 "CircuitsICInputPin",
                 "IC_InputPin_Icon.png",
+                new VanillaCloneBuilder(constantSignal, new BuildingDefinitionId("CircuitsICInputPin")),
                 constantSignal,
-                (definition, _) => new AtomicStatelessBuildingSimulationSystem<ConstantSignalSimulation, ConstantSignalConfiguration>(
-                    new ConstantSignalSimulationFactory(),
-                    definition.Id,
-                    logger),
-                toolbar,
-                logger);
-
-            var display = new BuildingDefinitionId("DisplayDefaultInternalVariant");
+                constantSimulation,
+                toolbar: null);
             AddPin(
                 BoardReader.OutputPinGroup,
                 "CircuitsICOutputPin",
                 "IC_OutputPin_Icon.png",
+                new VanillaCloneBuilder(display, new BuildingDefinitionId("CircuitsICOutputPin")),
                 display,
-                (definition, _) => new AtomicStatefulBuildingSimulationSystem<DisplaySimulation, DisplaySimulationState>(
-                    new DisplaySimulationFactory(),
-                    definition.Id,
-                    logger),
-                toolbar,
-                logger);
+                displaySimulation,
+                toolbar: null);
+        }
+
+        private static IBuildingBuilder NotchPin(BuildingDefinitionId vanilla, string name, bool input)
+        {
+            return new ReshapedCloneBuilder(
+                vanilla,
+                new ReshapedCloneBuilder.Variant(
+                    new BuildingDefinitionId(name),
+                    PinModel.Connectors(input, mirrored: false),
+                    drawData => PinModel.DrawData(input, mirrored: false, drawData)),
+                new ReshapedCloneBuilder.Variant(
+                    new BuildingDefinitionId(name + "Mirrored"),
+                    PinModel.Connectors(input, mirrored: true),
+                    drawData => PinModel.DrawData(input, mirrored: true, drawData)));
         }
 
         private static void AddPin(
             BuildingDefinitionGroupId groupId,
             string name,
             string icon,
+            IBuildingBuilder building,
             BuildingDefinitionId vanilla,
             Func<BuildingDefinition, SimulationSystemsDependencies, ISimulationSystem> simulation,
-            IToolbarEntryInsertLocation toolbar,
-            ILogger logger)
+            IToolbarEntryInsertLocation toolbar)
         {
             ModFolderLocator resources = ModDirectoryLocator.CreateLocator<CircuitsMod>().SubLocator("Resources");
             IBuildingGroupBuilder group = BuildingGroup.Create(groupId)
@@ -192,12 +229,12 @@ namespace Circuits
                .WithIcon(FileTextureLoader.LoadTextureAsSprite(resources.SubPath(icon), out _))
                .AsNonTransportableBuilding()
                .WithPreferredPlacement(DefaultPreferredPlacementMode.Single)
-               // A board's notches are where its pins naturally go, as space belt ports use a platform's notches.
+               // A board's notches are where its pins go, as space belt ports use a platform's notches.
                .AllowedOnNotches()
                .WithDefaultStructureOverview();
 
             CustomSimulationBuilding.Register(
-                new VanillaCloneBuilder(vanilla, new BuildingDefinitionId(name)),
+                building,
                 group,
                 new UnlockBuildingWithExistingSideUpgradeResearchProgressionExtender(new SideUpgradeUnlocking(AndGateGroup)),
                 toolbar,
