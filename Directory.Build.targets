@@ -5,16 +5,20 @@
     <ItemGroup Condition="'$(UseShapezShifter)' == 'true'">
         <Reference Include="ShapezShifter" HintPath="$(SPZ2_SHIFTER)" Private="False" />
         <Reference Include="MonoMod.RuntimeDetour" HintPath="$(SPZ2_MONOMOD)" Private="False" />
-        <Reference Include="$(SPZ2_PATH)\Game.*.dll;$(SPZ2_PATH)\Core.*.dll;$(SPZ2_PATH)\SPZGameAssembly.dll;$(SPZ2_PATH)\Unity.Mathematics.dll;$(SPZ2_PATH)\UnityEngine.ImageConversionModule.dll"
+        <Reference Include="$(SPZ2_PATH)\Game.*.dll;$(SPZ2_PATH)\Core.*.dll;$(SPZ2_PATH)\SPZGameAssembly.dll;$(SPZ2_PATH)\Unity.Mathematics.dll;$(SPZ2_PATH)\Unity.Core.dll;$(SPZ2_PATH)\UnityEngine.ImageConversionModule.dll"
                    Exclude="$(SPZ2_PATH)\Game.Core.Modding.dll;$(SPZ2_PATH)\Game.*.Editor.*.dll;$(SPZ2_PATH)\Game.Content.Editor.*.dll"
                    Private="False" />
     </ItemGroup>
 
-    <!-- Opt in with <PublicizeAll>true</PublicizeAll> to reach the game's private members, as the official samples do. -->
-    <PropertyGroup Condition="'$(PublicizeAll)' == 'true'">
+    <!--
+      To reach the game's private or internal members, as the official samples do: <PublicizeAll>true</PublicizeAll>
+      for everything, or <UsePublicizer>true</UsePublicizer> plus <Publicize Include="Assembly:Type" /> items for
+      just what is needed.
+    -->
+    <PropertyGroup Condition="'$(PublicizeAll)' == 'true' Or '$(UsePublicizer)' == 'true'">
         <PublicizerClearCacheOnClean>true</PublicizerClearCacheOnClean>
     </PropertyGroup>
-    <ItemGroup Condition="'$(PublicizeAll)' == 'true'">
+    <ItemGroup Condition="'$(PublicizeAll)' == 'true' Or '$(UsePublicizer)' == 'true'">
         <PackageReference Include="Krafs.Publicizer" Version="2.3.0">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

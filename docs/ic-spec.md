@@ -201,6 +201,12 @@ silently: a change that breaks a running factory should be a choice.
 
 Deleting a board does not delete its library entry, and packages keep working from their own copy.
 
+**Firmware keeps its board's layout** (milestone 4). A library entry stores, besides the netlist, the
+board's buildings: definition, position and rotation on the board, and configuration (so input pins keep
+their test values). Without it, a deleted or rebuilt board would leave firmware that can never be edited
+again. An empty IC Board's panel offers **Restore** for any firmware: it places that layout onto the board,
+through the game's undoable building action, ready to edit and build as a new revision.
+
 ### 3.8 Evaluation and timing
 
 The package simulation (`ICSimulation`) implements `ISignalSimulation` and `IUpdatableSimulation`, with
@@ -242,31 +248,37 @@ The board is an ordinary platform, so building on it uses the normal camera and 
 **The game's side panel modules cover most of this without hooking the HUD.** A building's side panel
 provider can return, besides the editor-only wire rows: `HUDSidePanelModuleInfoText(text)`,
 `HUDSidePanelModuleGenericSection(icon, title, description)`, `HUDSidePanelModuleGenericButton(text,
-action)` and `HUDSidePanelModuleDropdownSelector(values, current, onChange)`. A dropdown of circuits plus a
-Load button is the package's load UI; a button is the board's Compile. Text is fixed when the panel opens,
-so live values still need a module of our own. Since milestone 3a, a package's panel shows its circuit's
-name, revision and sides as a section.
+action)` and `HUDSidePanelModuleDropdownSelector(values, current, onChange)`. Text is fixed when the panel opens,
+so live values still need a module of our own.
 
-Milestones 2 and 3 start with **console commands** (F1), and the UI follows in milestone 4.
-They work on the selected buildings and follow ShapezShifter's convention of prefixing a mod's commands
-with its name:
+Since milestone 4 the panels are the UI (`IC/Board/BoardModules`, `IC/Package/ICPackageModules`):
+
+- **Board** (select the platform itself; an island module provider): its name and its firmware's library
+  revision; **Rename** (a text dialog); **Build firmware**, which asks for a name if the board has none and
+  shows the result or errors in a dialog; and, on an empty board, a firmware dropdown and **Restore**.
+- **Chip**: its firmware, name, revision and sides; **Update to revision N** and **Update all chips
+  running X** when the library holds a newer revision; a firmware dropdown and **Flash firmware**.
+
+The **console commands** (F1) of milestones 2 and 3 remain, renamed for firmware. They work on the
+selected buildings and follow ShapezShifter's convention of prefixing a mod's commands with its name:
 
 ```
-circuits.list              list the circuits that can be loaded
-circuits.load <circuit>    load a circuit into the selected packages
-circuits.info              show the circuit in each selected package
-circuits.compile <name>    compile the selected board into the library (milestone 3)
+circuits.build <name>      name the selected building's board and build it into firmware
+circuits.flash <firmware>  flash firmware onto the selected chips
+circuits.list              the firmware library, then the built-in test circuits
+circuits.info              the firmware on each selected chip
 ```
 
 They register by hooking the game's console setup (`GameSessionOrchestrator.Init_9_ConsoleCommands`)
 directly rather than through ShapezShifter's console hook, which passes on only the console, because
-loading needs the session's player and action manager.
+flashing needs the session's player, action manager and dialog stack (kept in `IC/ICSession` for the
+panels too).
 
-**Loading replaces the package.** A package's configuration never changes once placed. `circuits.load`
+**Flashing replaces the chip.** A chip's configuration never changes once placed. Flashing
 deletes each selected package and places a new one holding the circuit, in one of the game's own
 undoable building actions (`ActionModifyBuildings`, scheduled through `PlayerActionManager`). So the
 change happens between simulation updates, the new package's sides are ordered for their new roles, the
-simulation reads its netlist without locking, and Ctrl+Z undoes a load.
+simulation reads its netlist without locking, and Ctrl+Z undoes a flash.
 
 ### 3.10 Packages
 
@@ -370,15 +382,28 @@ Each one ends with something playable.
      nested packages.
    - **3b, the board platform (built).** The IC Board island (`IC/Board/BoardIsland`): one chunk with a
      notch on each side, like a 1×1 foundation, but no space belt connectors; in the Platforms toolbar
-     after the 1×1 foundation. Circuits compile only on a board. Placement rules
+     after the 1×1 foundation. It has its own collision box, because ShapezShifter's bounding collider is
+     empty for a one-chunk platform, which leaves it unselectable in space view. Circuits compile only on a board. Placement rules
      (`IC/Board/BoardPlacementRules`, a hook on `BaseMapInteractionMode.AllowBuildingGroup`, which both
      placement and its preview ask): a board takes only buildings whose connectors are all signal
      connectors, and no wire transmitters to neighbouring platforms; pins go only on boards. The package
      and pins sit in their own **Integrated Circuits** group in the Wires toolbar, after Logic Gates
      (`Kit/ToolbarGroup`); the latch stays among the gates. The board's name and GUID move to milestone 4,
      with its side panel.
-4. **UI.** Side panels for board, pin and package; load dialog; update flow; compile errors shown on
-   the board.
+4. **UI and firmware (built, awaiting play test).** Decided 2026-10-22:
+   1. **Firmware naming.** A package is a chip that runs firmware: `circuits.compile` becomes
+      `circuits.build`, `circuits.load` becomes `circuits.flash`, the library is the firmware library, an
+      empty chip has "no firmware". Internal names stay (the library's type name names its save file).
+   2. **Board identity.** A board's name (and GUID), saved in its island configuration, set from its panel.
+   3. **Board panel.** Select the board platform itself: its name, a **Build** button (the whole board is
+      the source; no need to select its contents) and the last build's result or errors.
+   4. **Firmware keeps the board layout** (section 3.7); an empty board's panel offers **Restore**.
+   5. **Chip panel.** A firmware dropdown and **Flash** button; **Update** and **Update all** when the library
+      holds a newer revision.
+   6. Live side values in the panel: optional; the side arrows cover most of it.
+
+   Considered and not chosen: chips following a board automatically, auto-building on every change, and
+   saving a box selection of the board's contents like a blueprint.
 5. **Depth.** 2×1 and 2×2 boards and packages, nested ICs, virtual shape processors and channels inside
    ICs, the jump-to-board hotkey.
 6. **Release.** Package models, translations, Workshop page using the ShapezShifter logo, compatibility

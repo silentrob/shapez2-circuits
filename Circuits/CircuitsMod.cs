@@ -1,4 +1,5 @@
 using System;
+using Circuits.IC;
 using Circuits.IC.Board;
 using Circuits.IC.Commands;
 using Circuits.IC.Compilation;
@@ -48,7 +49,7 @@ namespace Circuits
                 FileTextureLoader.LoadTextureAsSprite(resources.SubPath("IC_Icon.png"), out _));
 
             ICPackageRenderer.Logger = logger;
-            BuildingDefinitionGroupId packageGroup = AddICPackage(icToolbar, logger);
+            AddICPackage(icToolbar, logger);
             AddPins(icToolbar, logger);
             BoardIsland.Register(AndGateGroup, logger);
             BoardRules = Optional(
@@ -56,12 +57,14 @@ namespace Circuits
                 "IC Boards accept any building and pins can go on any platform",
                 logger);
             this.AttachSaveData<CircuitLibrary>();
+            ICSession.Library = this.GetSaveData<CircuitLibrary>;
+            ICSession.Logger = logger;
             TwoWayHooks = Optional(
                 () => new TwoWayCompatibilityHooks(),
                 "IC Packages will show connection warnings",
                 logger);
             Commands = Optional(
-                () => new ICConsoleCommands(packageGroup, this.GetSaveData<CircuitLibrary>, logger),
+                () => new ICConsoleCommands(logger),
                 "the circuits console commands are unavailable",
                 logger);
         }
@@ -203,12 +206,10 @@ namespace Circuits
         }
 
         // A 1x1 package with four two-way sides, running the circuit in its configuration (empty when placed).
-        private static BuildingDefinitionGroupId AddICPackage(IToolbarEntryInsertLocation toolbar, ILogger logger)
+        private static void AddICPackage(IToolbarEntryInsertLocation toolbar, ILogger logger)
         {
             ModFolderLocator resources = ModDirectoryLocator.CreateLocator<CircuitsMod>().SubLocator("Resources");
-            var groupId = new BuildingDefinitionGroupId("CircuitsICPackage1x1Group");
-
-            IBuildingGroupBuilder group = BuildingGroup.Create(groupId)
+            IBuildingGroupBuilder group = BuildingGroup.Create(IC.Firmware.ChipGroup)
                .WithTitle("building-variant.CircuitsICPackage1x1.title".T())
                .WithDescription("building-variant.CircuitsICPackage1x1.description".T())
                .WithIcon(FileTextureLoader.LoadTextureAsSprite(resources.SubPath("IC_Icon.png"), out _))
@@ -234,8 +235,6 @@ namespace Circuits
                 toolbar,
                 (definition, _) => new ICPackageSimulationSystem(definition.Id, logger),
                 _ => new ICPackageModules());
-
-            return groupId;
         }
 
         private static IBuildingConnectorData LatchConnectors(TileDirection data)

@@ -2,5 +2,11 @@
     <PropertyGroup>
         <RootNamespace>Circuits</RootNamespace>
         <UseShapezShifter>true</UseShapezShifter>
+        <UsePublicizer>true</UsePublicizer>
     </PropertyGroup>
+
+    <ItemGroup>
+        <!-- Named in ShapezShifter's IIslandBuilder, which BoardIslandBuilder implements; internal to the game. -->
+        <Publicize Include="SPZGameAssembly:IslandDefinitionGroup" />
+    </ItemGroup>
 </Project>

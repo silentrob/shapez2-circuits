@@ -7,6 +7,7 @@ using Game.Core.Content.Buildings;
 using Game.Core.Content.Islands;
 using Game.Core.Coordinates;
 using ShapezShifter.Flow;
+using Unity.Mathematics;
 using ShapezShifter.Flow.Atomic;
 using ShapezShifter.Flow.Research;
 using ShapezShifter.Kit;
@@ -39,7 +40,7 @@ namespace Circuits.IC.Board
             ChunkLayoutLookup<ChunkVector, IslandChunkData> layout = SingleChunkLayout();
             IIslandBuilder island = Island.Create(Id)
                .WithLayout(layout)
-               .WithBoundingCollider()
+               .WithCustomCollider(ChunkCollider())
                .WithConnectorData(new IslandConnectorData(
                     Array.Empty<EntityIO<LocalChunkPivot, IIslandConnector>>(),
                     layout.GetChunkPositions()))
@@ -49,13 +50,22 @@ namespace Circuits.IC.Board
 
             AtomicIslands.Extend()
                .AllScenarios()
-               .WithIsland(island, group)
+               .WithIsland(new BoardIslandBuilder(island), group)
                .UnlockedWithExistingSideUpgrade(new SideUpgradeUnlocking(unlockedWith))
                .WithDefaultPlacement()
                .InToolbar(new AfterToolbarEntry(FoundationGroup, logger))
                .WithoutSimulation()
-               .WithoutModules()
+               .WithCustomModules(new BoardModules())
                .Build();
+        }
+
+        // What space view's hover and click test against. ShapezShifter's WithBoundingCollider spans from the
+        // first chunk's origin to the last's, so a one-chunk platform gets a box of size zero and can never be
+        // selected. One chunk is 20 tiles square; the height only needs to catch a ray from above.
+        private static IEnumerable<CollisionBox> ChunkCollider()
+        {
+            const float side = CoordinateConstants.TilesPerIslandLayer;
+            return new[] { new CollisionBox(new LocalVector(0, 0, 0), new LocalDimension(new float3(side, side, 10))) };
         }
 
         // One chunk with a notch on every side, as a 1x1 foundation has.
