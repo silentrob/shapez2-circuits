@@ -227,6 +227,12 @@ Rules, matching vanilla so a package behaves exactly like its board:
   the cut goes is decided at compile time and is stable.
 - **State.** Latch values, loop-cut values and channel buffers live in the package's simulation state,
   saved with the game under a fixed `SyncableIdentifier` (never renamed).
+- **Latches need no loops.** A latch is a gate with a stored value, not a feedback loop: inside a package
+  it is a stateful gate whose value lives in the package state. It can come before general loops.
+- **Matching the board's loop timing.** Where vanilla delays a value by a tick inside a loop depends on
+  its update order, so before loops are compiled, reference loops are built on a board (an SR latch from
+  two NOR gates, a self-toggling NOT, a two-gate ring) and their tick-by-tick output recorded; the
+  evaluator's cut must reproduce them, and they become its tests.
 
 The evaluator is plain arrays, built once, with no allocation per tick and no map access. Shape
 operations and channel access get their dependencies (shape registry, channel registry) from the
@@ -326,6 +332,41 @@ package swaps its north and south connections, as the game does for every mirror
 
 - Boards, pins and packages unlock with the vanilla **Logic Gates** research, as the latch does.
 - Everything is free to place for now.
+
+### 3.13 Data on a signal line
+
+Explored 2026-10-22, from the game's signal model:
+
+- A wire carries one value per signal tick, and that value can be a full 32-bit integer
+  (`IntegerSignal`), not only 0 or 1. Gates treat any non-zero value as on; a Constant Signal can hold
+  any number. So one wire already carries 32 bits per tick; the game only lacks gates that read or
+  change them.
+- Signals tick 12 times a second (`SignalSimulation.SignalsPerSecond`), so anything sent over time
+  moves about 12 values a second per wire.
+
+Ways to carry more over one line:
+
+| Approach | Needs | Bandwidth | Verdict |
+|---|---|---|---|
+| Bit packing: masks, shifts, bitwise AND/OR/XOR, add | New integer gates | 32 bits per line, instantly | Best value: no latency, deterministic, and the wire supports it already. |
+| Multiplexing by address | Gates (Transistors make a 2-way mux today) | One value at a time, instantly | Buildable now; integer gates make it compact. |
+| Shapes as packets (each layer and quadrant holds a part and a colour) | The virtual processors, as field accessors | Many fields per signal | Works, but awkward to read and write: a curiosity. |
+| Time-division / serial | Clock, counters, latches | About 12 bits a second | Slow; a puzzle more than a tool. |
+| PWM | Counters and comparators | Slower still | For blinking displays, not data. |
+
+So bandwidth comes from integer gates, and state (latches, loops) is what time-based schemes are built
+from; they are separate pieces.
+
+**Integer gates (decided 2026-10-22: usable anywhere).** New Circuits buildings, like the latch, on any
+platform and inside packages: bitwise AND, OR, XOR and NOT on whole integers, shift left and right, mask
+and extract, add and subtract. The vanilla Compare gate joins them inside packages. Players then build
+multiplexers, serial links and PWM from them, rather than the mod providing each.
+
+**What loops are for.** Memory and timing from plain gates: toggles (a button pressed once for on, again
+for off), counters (count shapes past a belt reader, act at N), clocks (blink a display, pulse a filter),
+edge detectors (act only when a signal changes) and sequencers (cycle a painter through colours). The
+latch covers the most common need, remembering a value, so general loops follow when clocks and counters
+are wanted.
 
 ## 4. ShapezShifter gaps to fill
 
@@ -449,13 +490,18 @@ Each one ends with something playable.
      firmware is refused, and so, for now, is one whose firmware joins two connections inside to separate
      board wires. A button compiles to its board state, as section 3.5 says: on sends 1, off sends nothing,
      as vanilla's does.
+   - **Next, in order (decided 2026-10-22).** Latches inside packages, as stateful gates (section 3.8);
+     integer gates, usable anywhere (section 3.13); then feedback loops, calibrated against reference
+     loops built on a board (section 3.8).
 6. **Release.** Package models, translations, Workshop page using the ShapezShifter logo, compatibility
    notes.
 
 ## 7. Open questions
 
-1. **Buttons and displays inside ICs.** Section 3.5 proposes a button keeps its board state and a
-   display shows nothing. Acceptable?
+None at present.
+
+Settled 2026-10-22: buttons keep their board state inside a package and displays show nothing (built);
+integer gates are new buildings usable anywhere (section 3.13), now that ICs exist.
 
 Settled 2026-10-21: package connections follow the chunk-to-tile scale and are two-way; free to place;
 no new gates before ICs; everything signal-based works inside an IC; belts and fluids are not allowed on
