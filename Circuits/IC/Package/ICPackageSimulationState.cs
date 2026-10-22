@@ -19,6 +19,16 @@ namespace Circuits.IC.Package
         public readonly SignalConductorInputState[] SideInputStates =
             Enumerable.Range(0, MaxConnections).Select(_ => new SignalConductorInputState()).ToArray();
 
+        // A state saves through the input attached to it. The simulation attaches one to each connection it uses;
+        // these keep the rest (a smaller package's) saveable.
+        public ICPackageSimulationState()
+        {
+            foreach (SignalConductorInputState side in SideInputStates)
+            {
+                _ = new SignalConductorInput(side);
+            }
+        }
+
         public void Sync(ISerializationVisitor visitor)
         {
             int version = Version;

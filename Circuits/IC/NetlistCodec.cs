@@ -9,9 +9,11 @@ namespace Circuits.IC
     //   1: gates And, Or, Xor, Not.
     //   2: adds Transistor and Constant; a Constant gate is followed by its value.
     //   3: adds the package shape (width and height bytes) after the name; earlier versions are 1x1.
+    //   4: adds the virtual shape processor gates; a Constant's value is followed by its signal ("" for none),
+    //      and a gate with two outputs ends with the second.
     public static class NetlistCodec
     {
-        private const int Version = 3;
+        private const int Version = 4;
 
         // Far beyond any real circuit; only guards against allocating from corrupt counts.
         private const int MaxCount = 1_000_000;
@@ -46,6 +48,12 @@ namespace Circuits.IC
                     if (gate.Kind == GateKind.Constant)
                     {
                         writer.Write(gate.Value);
+                        writer.Write(gate.Signal ?? "");
+                    }
+
+                    for (int extra = 1; extra < gate.Outputs.Length; extra++)
+                    {
+                        writer.Write(gate.Outputs[extra]);
                     }
                 }
             }
@@ -109,7 +117,8 @@ namespace Circuits.IC
                     var kind = (GateKind)reader.ReadByte();
                     int output = reader.ReadInt32();
                     int inputCount = reader.ReadInt32();
-                    if (!Enum.IsDefined(typeof(GateKind), kind) || inputCount != InputCount(kind))
+                    if (!Enum.IsDefined(typeof(GateKind), kind) || inputCount != InputCount(kind)
+                        || (version < 4 && kind > GateKind.Constant))
                     {
                         return false;
                     }
@@ -126,9 +135,26 @@ namespace Circuits.IC
                         return false;
                     }
 
-                    gates[i] = kind == GateKind.Constant
-                        ? Gate.Constant(output, reader.ReadInt32())
-                        : new Gate(kind, output, inputs);
+                    if (kind == GateKind.Constant)
+                    {
+                        int value = reader.ReadInt32();
+                        string signal = version >= 4 ? reader.ReadString() : "";
+                        gates[i] = signal.Length > 0 ? Gate.Constant(output, signal) : Gate.Constant(output, value);
+                        continue;
+                    }
+
+                    var outputs = new int[Gate.OutputCount(kind)];
+                    outputs[0] = output;
+                    for (int extra = 1; extra < outputs.Length; extra++)
+                    {
+                        outputs[extra] = reader.ReadInt32();
+                        if (!IsNet(outputs[extra], netCount))
+                        {
+                            return false;
+                        }
+                    }
+
+                    gates[i] = new Gate(kind, outputs, inputs);
                 }
 
                 netlist = new Netlist(name, shape, netCount, roles, nets, gates);
@@ -142,12 +168,7 @@ namespace Circuits.IC
 
         public static int InputCount(GateKind kind)
         {
-            return kind switch
-            {
-                GateKind.Constant => 0,
-                GateKind.Not => 1,
-                _ => 2
-            };
+            return Gate.InputCount(kind);
         }
 
         private static bool IsNet(int net, int netCount)

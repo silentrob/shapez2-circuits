@@ -32,7 +32,9 @@ namespace Circuits.IC.Compilation
     //   1. Trace nets: connectors joined by wires, or facing each other directly. A wire joins its junctions;
     //      facing connectors join when the game would connect them (not input to input, or output to output).
     //   2. Bind pins to package sides, and gates to the nets on their connectors.
-    //   3. Order gates so each comes after the gates driving its inputs. Feedback loops are refused for now.
+    //   3. Copy in the firmware of chips on the board: their gates join the board's, on the board's nets where
+    //      the chip connects and on nets of their own inside it.
+    //   4. Order gates so each comes after the gates driving its inputs. Feedback loops are refused for now.
     public static class BoardCompiler
     {
         public static CompileResult Compile(string name, IReadOnlyList<Part> parts)
@@ -72,6 +74,7 @@ namespace Circuits.IC.Compilation
             var sideNets = Enumerable.Repeat(-1, shape.Connections).ToArray();
             var sidePins = new string[shape.Connections];
             var gates = new List<(Gate Gate, Part Part)>();
+            var packages = new List<(Part Part, int[] Nets)>();
             foreach (Part part in parts)
             {
                 int first = portIndex;
@@ -88,11 +91,22 @@ namespace Circuits.IC.Compilation
                     case PartKind.OutputPin:
                         BindPin(part, shape, nets, sideRoles, sideNets, sidePins, errors);
                         break;
+                    case PartKind.Package:
+                        packages.Add((part, nets));
+                        break;
                     case PartKind.Constant:
-                        gates.Add((Gate.Constant(OnlyOutput(part, nets), part.Value), part));
+                        gates.Add((
+                            part.Signal != null
+                                ? Gate.Constant(OnlyOutput(part, nets), part.Signal)
+                                : Gate.Constant(OnlyOutput(part, nets), part.Value),
+                            part));
                         break;
                     default:
-                        gates.Add((ToGate(part, nets), part));
+                        if (ToGate(part, nets, errors) is { } gate)
+                        {
+                            gates.Add((gate, part));
+                        }
+
                         break;
                 }
             }
@@ -102,10 +116,58 @@ namespace Circuits.IC.Compilation
                 errors.Add("The board has no IC pins: place IC Input Pins and IC Output Pins on its edges.");
             }
 
+            // A chip's own nets are numbered after the board's.
+            int netCount = netOfSet.Count;
+            foreach ((Part package, int[] nets) in packages)
+            {
+                Expand(package, nets, ref netCount, gates, errors);
+            }
+
             Gate[] ordered = Order(gates, errors);
             return errors.Count > 0
                 ? CompileResult.Failure(errors)
-                : CompileResult.Success(new Netlist(name, shape, netOfSet.Count, sideRoles, sideNets, ordered));
+                : CompileResult.Success(new Netlist(name, shape, netCount, sideRoles, sideNets, ordered));
+        }
+
+        // Copies a chip's gates in: each of its connected connections' nets becomes the board net on that port,
+        // and its other nets get new numbers from netCount on.
+        private static void Expand(Part package, int[] portNets, ref int netCount, List<(Gate Gate, Part Part)> gates, List<string> errors)
+        {
+            Netlist nested = package.Nested;
+            int[] map = Enumerable.Repeat(-1, nested.NetCount).ToArray();
+            for (int port = 0; port < portNets.Length; port++)
+            {
+                int connection = package.PortConnections[port];
+                int inner = nested.SideNets[connection];
+                if (map[inner] == -1)
+                {
+                    map[inner] = portNets[port];
+                }
+                else if (map[inner] != portNets[port])
+                {
+                    errors.Add($"{package.Label} joins two of its connections inside ({nested.Shape.Name(connection)} "
+                               + "and another) to separate wires on this board; chips like that can't be nested yet.");
+                    return;
+                }
+            }
+
+            for (int inner = 0; inner < map.Length; inner++)
+            {
+                if (map[inner] == -1)
+                {
+                    map[inner] = netCount++;
+                }
+            }
+
+            foreach (Gate gate in nested.Gates)
+            {
+                Gate copy = gate.Kind == GateKind.Constant
+                    ? gate.Signal != null
+                        ? Gate.Constant(map[gate.Output], gate.Signal)
+                        : Gate.Constant(map[gate.Output], gate.Value)
+                    : new Gate(gate.Kind, gate.Outputs.Select(net => map[net]).ToArray(), gate.Inputs.Select(net => map[net]).ToArray());
+                gates.Add((copy, package));
+            }
         }
 
         private static void JoinWireJunctions(List<(Part Part, Port Port)> ports, DisjointSets sets)
@@ -192,7 +254,8 @@ namespace Circuits.IC.Compilation
             return nets[Array.FindIndex(part.Ports, port => port.Kind == PortKind.Out)];
         }
 
-        private static Gate ToGate(Part part, int[] nets)
+        // Inputs and outputs in connector order, which is the order the game binds them in.
+        private static Gate ToGate(Part part, int[] nets, List<string> errors)
         {
             GateKind kind = part.Kind switch
             {
@@ -201,12 +264,34 @@ namespace Circuits.IC.Compilation
                 PartKind.Xor => GateKind.Xor,
                 PartKind.Not => GateKind.Not,
                 PartKind.Transistor => GateKind.Transistor,
+                PartKind.VirtualRotateCw => GateKind.VirtualRotateCw,
+                PartKind.VirtualRotateCcw => GateKind.VirtualRotateCcw,
+                PartKind.VirtualHalfCut => GateKind.VirtualHalfCut,
+                PartKind.VirtualStack => GateKind.VirtualStack,
+                PartKind.VirtualUnstack => GateKind.VirtualUnstack,
+                PartKind.VirtualPaint => GateKind.VirtualPaint,
+                PartKind.VirtualCrystallize => GateKind.VirtualCrystallize,
+                PartKind.VirtualSwapHalves => GateKind.VirtualSwapHalves,
+                PartKind.VirtualPushPin => GateKind.VirtualPushPin,
+                PartKind.VirtualAnalyze => GateKind.VirtualAnalyze,
                 _ => throw new ArgumentOutOfRangeException(nameof(part), part.Kind, null)
             };
 
-            int[] inputs = part.Ports.Select((port, i) => (port, i)).Where(p => p.port.Kind == PortKind.In)
-               .Select(p => nets[p.i]).ToArray();
-            return new Gate(kind, OnlyOutput(part, nets), inputs);
+            int[] Nets(PortKind portKind)
+            {
+                return part.Ports.Select((port, i) => (port, i)).Where(p => p.port.Kind == portKind)
+                   .Select(p => nets[p.i]).ToArray();
+            }
+
+            int[] inputs = Nets(PortKind.In), outputs = Nets(PortKind.Out);
+            if (inputs.Length != Gate.InputCount(kind) || outputs.Length != Gate.OutputCount(kind))
+            {
+                errors.Add($"{part.Label} has {inputs.Length} inputs and {outputs.Length} outputs; expected "
+                           + $"{Gate.InputCount(kind)} and {Gate.OutputCount(kind)}.");
+                return null;
+            }
+
+            return new Gate(kind, outputs, inputs);
         }
 
         // Kahn's algorithm over "gate A drives a net gate B reads". Gates left over sit on a feedback loop.
@@ -215,12 +300,15 @@ namespace Circuits.IC.Compilation
             var drivers = new Dictionary<int, List<int>>();
             for (int i = 0; i < gates.Count; i++)
             {
-                if (!drivers.TryGetValue(gates[i].Gate.Output, out List<int> list))
+                foreach (int output in gates[i].Gate.Outputs.Distinct())
                 {
-                    drivers.Add(gates[i].Gate.Output, list = new List<int>());
-                }
+                    if (!drivers.TryGetValue(output, out List<int> list))
+                    {
+                        drivers.Add(output, list = new List<int>());
+                    }
 
-                list.Add(i);
+                    list.Add(i);
+                }
             }
 
             var waitingOn = new int[gates.Count];

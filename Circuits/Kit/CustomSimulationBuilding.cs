@@ -14,7 +14,8 @@ namespace Circuits.Kit
     // but with the simulation system supplied by the caller. AtomicBuildings always registers the game's
     // ConnectableBuildingSimulation, which binds connectors by their declared direction; buildings that
     // need their own connectable simulation (IC packages' two-way sides) register through this instead.
-    // A building with a mirrored variant (see VanillaCloneBuilder) gets the simulation and side panel for both.
+    // A building with a mirrored variant (see ReshapedCloneBuilder) or other variants (BuildingVariants) gets the
+    // simulation and side panel for each.
     // With no toolbar location, the building stays usable (saves, blueprints) but cannot be picked to place.
     public static class CustomSimulationBuilding
     {
@@ -70,11 +71,21 @@ namespace Circuits.Kit
             }
         }
 
-        private static BuildingDefinition MirroredVariant(BuildingDefinition definition)
+        private static IEnumerable<BuildingDefinition> Variants(BuildingDefinition definition)
         {
-            return definition.CustomData.TryGet(out IBuildingMirroringDefinition mirroring) && !mirroring.IsMirrored
-                ? mirroring.MirroredDefinition as BuildingDefinition
-                : null;
+            if (definition.CustomData.TryGet(out IBuildingMirroringDefinition mirroring) && !mirroring.IsMirrored
+                && mirroring.MirroredDefinition is BuildingDefinition mirrored)
+            {
+                yield return mirrored;
+            }
+
+            if (definition.CustomData.TryGet(out BuildingVariants variants))
+            {
+                foreach (BuildingDefinition variant in variants.Definitions)
+                {
+                    yield return variant;
+                }
+            }
         }
 
         private static ToolbarRewirer ToolbarEntry(BuildingPlacementResult placement, IToolbarEntryInsertLocation location)
@@ -126,9 +137,9 @@ namespace Circuits.Kit
             {
                 IBuildingModules provider = SidePanel(modulesLookup);
                 modulesLookup.AddModule(Definition.Id, Definition, provider);
-                if (MirroredVariant(Definition) is { } mirrored)
+                foreach (BuildingDefinition variant in Variants(Definition))
                 {
-                    modulesLookup.AddModule(mirrored.Id, mirrored, provider);
+                    modulesLookup.AddModule(variant.Id, variant, provider);
                 }
 
                 Applied.Invoke();
@@ -156,9 +167,9 @@ namespace Circuits.Kit
                 SimulationSystemsDependencies dependencies)
             {
                 simulationSystems.Add(Create(Definition, dependencies));
-                if (MirroredVariant(Definition) is { } mirrored)
+                foreach (BuildingDefinition variant in Variants(Definition))
                 {
-                    simulationSystems.Add(Create(mirrored, dependencies));
+                    simulationSystems.Add(Create(variant, dependencies));
                 }
 
                 Applied.Invoke();

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Circuits.Kit;
 using ShapezShifter.Kit;
 using UnityEngine;
@@ -24,7 +25,20 @@ namespace Circuits.IC.Package
 
         public static BuildingDrawData DrawData(PackageShape shape, IBuildingCustomDrawData customDrawData)
         {
-            Mesh mesh = Chip(shape);
+            return DrawData(shape, ChipVariants.AllConnections(shape), customDrawData);
+        }
+
+        // Made once per shape and set of connections, then reused for every map the game builds.
+        private static readonly Dictionary<(PackageShape, int), Mesh> Meshes = new();
+
+        // A chip with a socket only on the connections given (see ChipVariants).
+        public static BuildingDrawData DrawData(PackageShape shape, int connections, IBuildingCustomDrawData customDrawData)
+        {
+            if (!Meshes.TryGetValue((shape, connections), out Mesh mesh))
+            {
+                Meshes.Add((shape, connections), mesh = Chip(shape, connections));
+            }
+
             LOD6Mesh lods = MeshLod.Create().AddLod0Mesh(mesh).BuildLod6Mesh();
             ((ILODMesh)lods).TryGet(0, out IMeshReference closest);
             return new BuildingDrawData(
@@ -59,7 +73,7 @@ namespace Circuits.IC.Package
         public const float ArrowDistance = 0.18f;
 
         // Building space has z north and the shape's tiles run east (x) and south (-z) from the origin tile.
-        private static Mesh Chip(PackageShape shape)
+        private static Mesh Chip(PackageShape shape, int connections)
         {
             float east = shape.Width - 1, south = shape.Height - 1;
             var mesh = new PaletteMesh()
@@ -72,9 +86,12 @@ namespace Circuits.IC.Package
                 (int x, int y) = shape.Tile(connection);
                 var tile = new Vector3(x, 0, -y);
 
-                // A socket in the middle of each connection's edge, out to the tile edge, for a wire to plug
+                // A socket in the middle of each used connection's edge, out to the tile edge, for a wire to plug
                 // into, as vanilla buildings have where they connect.
-                AddBox(mesh, tile + side(-0.055f, BodyHalf - 0.02f), tile + side(0.055f, 0.5f), 0.025f, 0.135f, Socket);
+                if (ChipVariants.Uses(connections, connection))
+                {
+                    AddBox(mesh, tile + side(-0.055f, BodyHalf - 0.02f), tile + side(0.055f, 0.5f), 0.025f, 0.135f, Socket);
+                }
 
                 // A leg either side of it, from under the body's edge.
                 foreach (float along in new[] { -0.17f, 0.17f })
@@ -83,7 +100,7 @@ namespace Circuits.IC.Package
                 }
             }
 
-            return mesh.Build($"CircuitsICPackage{shape}");
+            return mesh.Build($"{ChipVariants.Name(shape)}Uses{connections}");
         }
 
         // A box between two ground-level corners (in either order), from bottom to top.

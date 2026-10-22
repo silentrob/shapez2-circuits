@@ -19,6 +19,7 @@ DARK = (36, 40, 46)
 WHITE = ((253, 253, 253), (200, 204, 206))  # top, bottom
 SILVER = ((214, 218, 220), (150, 156, 160))
 ORANGE = ((248, 164, 64), (224, 116, 38))
+GROOVE = ((120, 126, 132), (96, 102, 108))
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'Circuits', 'Resources')
 DUMP = os.path.join(os.environ.get('USERPROFILE', ''), 'AppData', 'LocalLow', 'tobspr Games', 'shapez 2', 'mods',
@@ -79,16 +80,33 @@ def union(*parts):
     return draw
 
 
-def chip():
+def chip(width=1, height=1, name='IC_Icon.png'):
+    """A chip of width x height tiles, drawn the way the game draws its display sizes: one body, split into its
+    tiles by grooves, with legs on every tile edge and the pin-1 dot in the north-west corner."""
     icon = Icon()
+    cell = 140 if max(width, height) == 1 else 84
+    w, h = cell * width, cell * height
+    x0, y0 = (SIZE - w) / 2, (SIZE - h) / 2
+    reach = 32 if max(width, height) == 1 else 26
+    offsets = (-40, 0, 40) if max(width, height) == 1 else (-17, 17)
     legs = []
-    for along in (88, 128, 168):
-        legs += [rect(along - 9, 26, along + 9, 70), rect(along - 9, 186, along + 9, 230),
-                 rect(26, along - 9, 70, along + 9), rect(186, along - 9, 230, along + 9)]
+    for i in range(width):
+        for off in offsets:
+            x = x0 + cell * (i + 0.5) + off
+            legs += [rect(x - 8, y0 - reach, x + 8, y0 + 12), rect(x - 8, y0 + h - 12, x + 8, y0 + h + reach)]
+    for j in range(height):
+        for off in offsets:
+            y = y0 + cell * (j + 0.5) + off
+            legs += [rect(x0 - reach, y - 8, x0 + 12, y + 8), rect(x0 + w - 12, y - 8, x0 + w + reach, y + 8)]
     icon.shape(union(*legs), SILVER)
-    icon.shape(rect(58, 58, 198, 198, 22), WHITE)
-    icon.shape(ellipse(92, 92, 15), ORANGE)
-    icon.save('IC_Icon.png')
+    icon.shape(rect(x0, y0, x0 + w, y0 + h, 20), WHITE)
+    grooves = [rect(x0 + cell * i - 3, y0 + 14, x0 + cell * i + 3, y0 + h - 14) for i in range(1, width)]
+    grooves += [rect(x0 + 14, y0 + cell * j - 3, x0 + w - 14, y0 + cell * j + 3) for j in range(1, height)]
+    if grooves:
+        icon.shape(union(*grooves), GROOVE, outline=False)
+    dot = 15 if max(width, height) == 1 else 11
+    icon.shape(ellipse(x0 + dot + 19, y0 + dot + 19, dot), ORANGE)
+    icon.save(name)
 
 
 def text(x, y, words, size, font='ariblk.ttf'):
@@ -182,6 +200,8 @@ def fit(image, width, height):
 
 if __name__ == '__main__':
     chip()
+    chip(2, 1, 'IC_Chip2x1_Icon.png')
+    chip(2, 2, 'IC_Chip2x2_Icon.png')
     latch()
     pin(output=False)
     pin(output=True)

@@ -8,11 +8,13 @@ namespace Circuits.IC.Package
     public class ICPackageSimulationSystem : AtomicBuildingSimulationSystem<ICConnectableSimulation>
     {
         private readonly PackageShape Shape;
+        private readonly IGateResolver Resolver;
 
-        public ICPackageSimulationSystem(BuildingDefinitionId definitionId, PackageShape shape, ILogger logger)
+        public ICPackageSimulationSystem(BuildingDefinitionId definitionId, PackageShape shape, IGateResolver resolver, ILogger logger)
             : base(definitionId, logger)
         {
             Shape = shape;
+            Resolver = resolver;
         }
 
         protected override ICConnectableSimulation CreateConnectableSimulation(BuildingInstance building)
@@ -21,7 +23,7 @@ namespace Circuits.IC.Package
                 ? package.Netlist
                 : Netlist.EmptyOf(Shape);
             var state = building.State.New<ICPackageSimulationState>();
-            return new ICConnectableSimulation(building, new ICPackageSimulation(state, netlist));
+            return new ICConnectableSimulation(building, new ICPackageSimulation(state, netlist, Resolver));
         }
     }
 }

@@ -9,9 +9,11 @@ using Game.Core.Coordinates;
 using ShapezShifter.Flow;
 using ShapezShifter.Flow.Atomic;
 using ShapezShifter.Flow.Research;
+using ShapezShifter.Flow.Toolbar;
 using ShapezShifter.Kit;
 using ShapezShifter.Textures;
 using Unity.Mathematics;
+using UnityEngine;
 using ILogger = Core.Logging.ILogger;
 
 namespace Circuits.IC.Board
@@ -40,21 +42,36 @@ namespace Circuits.IC.Board
             return Array.Exists(Boards, board => board.Id == island);
         }
 
+        public static IslandDefinitionId IdOf(PackageShape shape)
+        {
+            return Array.Find(Boards, board => board.Shape.Equals(shape)).Id;
+        }
+
         // The package shape a board builds, or null for any other platform.
         public static PackageShape ShapeOf(IslandDefinitionId island)
         {
             return Array.Find(Boards, board => board.Id == island).Shape;
         }
 
+        // The boards get their own group in the Platforms toolbar, after the foundations' group, smallest first.
         public static void Register(BuildingDefinitionGroupId unlockedWith, ILogger logger)
         {
-            // Each board after the one before it, falling back on the 1x1 foundation when that one's toolbar
-            // entry is not there yet (see AfterToolbarEntry).
-            var after = new List<IslandDefinitionGroupId> { FoundationGroup };
-            foreach ((PackageShape shape, IslandDefinitionId id, IslandDefinitionGroupId groupId, string name) in Boards)
+            ModFolderLocator resources = ModDirectoryLocator.CreateLocator<CircuitsMod>().SubLocator("Resources");
+            Sprite[] icons = Boards
+               .Select(board => FileTextureLoader.LoadTextureAsSprite(
+                    resources.SubPath(board.Shape.Equals(PackageShape.Single) ? "IC_Board_Icon.png" : $"IC_Board{board.Shape}_Icon.png"),
+                    out _))
+               .ToArray();
+            var toolbar = new ToolbarGroup(
+                FoundationGroup,
+                "toolbar.circuits-ic-boards.title",
+                "toolbar.circuits-ic-boards.description",
+                icons[0],
+                icons);
+            for (int i = 0; i < Boards.Length; i++)
             {
-                Register(shape, id, groupId, name, after.ToArray(), unlockedWith, logger);
-                after.Insert(0, groupId);
+                (PackageShape shape, IslandDefinitionId id, IslandDefinitionGroupId groupId, string name) = Boards[i];
+                Register(shape, id, groupId, name, icons[i], toolbar, unlockedWith, logger);
             }
         }
 
@@ -63,7 +80,8 @@ namespace Circuits.IC.Board
             IslandDefinitionId id,
             IslandDefinitionGroupId groupId,
             string name,
-            IslandDefinitionGroupId[] after,
+            Sprite icon,
+            IToolbarEntryInsertLocation toolbar,
             BuildingDefinitionGroupId unlockedWith,
             ILogger logger)
         {
@@ -72,9 +90,7 @@ namespace Circuits.IC.Board
             IIslandGroupBuilder group = IslandGroup.Create(groupId)
                .WithTitle($"island-layout.{name}.title".T())
                .WithDescription($"island-layout.{name}.description".T())
-               .WithIcon(FileTextureLoader.LoadTextureAsSprite(
-                    resources.SubPath(shape.Equals(PackageShape.Single) ? "IC_Board_Icon.png" : $"IC_Board{shape}_Icon.png"),
-                    out _))
+               .WithIcon(icon)
                .AsNonTransportableIsland()
                .WithPreferredPlacement(DefaultPreferredPlacementMode.Single);
 
@@ -95,7 +111,7 @@ namespace Circuits.IC.Board
                .WithIsland(new BoardIslandBuilder(island, shape), group)
                .UnlockedWithExistingSideUpgrade(new SideUpgradeUnlocking(unlockedWith))
                .WithDefaultPlacement()
-               .InToolbar(new AfterToolbarEntry(after, logger))
+               .InToolbar(toolbar)
                .WithoutSimulation()
                .WithCustomModules(new BoardModules())
                .Build();

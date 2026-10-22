@@ -11,17 +11,11 @@ namespace Circuits.IC.Package
     // Side panel for a selected chip: its firmware and the controls to flash it, then each side's role and value.
     public class ICPackageModules : SimulationBasedBuildingModuleDataProvider<ICPackageSimulation>
     {
+        // No structure overview: a chip has no overview picture, and the empty frame pushed the firmware controls
+        // off the bottom of the screen.
         public override IEnumerable<IHUDSidePanelModuleData> GetInfoModules(IBuildingDefinition definition)
         {
-            foreach (IHUDSidePanelModuleData module in base.GetInfoModules(definition))
-            {
-                yield return module;
-            }
-
-            if (definition.CustomData.TryGet(out IBuildingDefinitionGroup group) && group.StructureOverview != null)
-            {
-                yield return new HUDSidePanelModuleStructureOverview.Data(group.StructureOverview);
-            }
+            return base.GetInfoModules(definition);
         }
 
         protected override IEnumerable<IHUDSidePanelModuleData> GetSimulationModules(
@@ -82,6 +76,19 @@ namespace Circuits.IC.Package
 
             List<CircuitEntry> library = ICSession.Library().Circuits;
             CircuitEntry current = FirmwareText.IsEmpty(netlist) ? null : ICSession.Library().Find(netlist.Name);
+            if (current?.Layout != null && current.Revision > 0)
+            {
+                // Places a new board holding the firmware's latest design, to change and build again.
+                yield return new HUDSidePanelModuleGenericButton.Data(
+                    new RawText($"Edit board ({current.Name}, revision {current.Revision})"),
+                    () =>
+                    {
+                        if (!Firmware.Edit(current, out string problem))
+                        {
+                            ICSession.Inform("Can't edit the board", problem);
+                        }
+                    });
+            }
             if (current != null && configuration.Revision > 0 && current.Revision > configuration.Revision)
             {
                 yield return new HUDSidePanelModuleGenericButton.Data(

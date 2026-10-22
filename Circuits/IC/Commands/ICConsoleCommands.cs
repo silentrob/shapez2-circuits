@@ -60,7 +60,11 @@ namespace Circuits.IC.Commands
             try
             {
                 var container = (DependencyContainer)SessionContainer.GetValue(session);
-                ICSession.Begin(container.Resolve<Player>(), container.Resolve<PlayerActionManager>(), container.Resolve<IHUDDialogStack>());
+                ICSession.Begin(
+                    container.Resolve<Player>(),
+                    container.Resolve<PlayerActionManager>(),
+                    container.Resolve<IHUDDialogStack>(),
+                    container.Resolve<IBlueprintStarter>());
 
                 var console = container.Resolve<IDebugConsole>();
                 console.Register("circuits.build", new DebugConsole.StringOption("name"), Logged(Build));

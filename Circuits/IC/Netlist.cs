@@ -9,34 +9,87 @@ namespace Circuits.IC
     public enum SideRole { Unused, Input, Output }
 
     // Never reorder or remove: kinds are saved by number. Transistor passes its first input while its second is
-    // truthy; Constant has no inputs and outputs its Value as an IntegerSignal.
-    public enum GateKind { And, Or, Xor, Not, Transistor, Constant }
+    // truthy; Constant has no inputs and outputs its Value as an IntegerSignal, or its Signal (any other value,
+    // serialized by the game) when it has one. The Virtual kinds are the vanilla virtual shape processors, run
+    // with the game's own shape operations (see IGateResolver), inputs and outputs in their connector order.
+    public enum GateKind
+    {
+        And,
+        Or,
+        Xor,
+        Not,
+        Transistor,
+        Constant,
+        VirtualRotateCw,
+        VirtualRotateCcw,
+        VirtualHalfCut,
+        VirtualStack,
+        VirtualUnstack,
+        VirtualPaint,
+        VirtualCrystallize,
+        VirtualSwapHalves,
+        VirtualPushPin,
+        VirtualAnalyze
+    }
 
     public sealed class Gate
     {
         public readonly GateKind Kind;
         public readonly int[] Inputs;
-        public readonly int Output;
+        public readonly int[] Outputs;
         public readonly int Value;
+        public readonly string Signal;
+
+        public int Output => Outputs[0];
 
         public Gate(GateKind kind, int output, params int[] inputs)
+            : this(kind, new[] { output }, inputs) { }
+
+        public Gate(GateKind kind, int[] outputs, int[] inputs)
         {
             Kind = kind;
-            Output = output;
+            Outputs = outputs;
             Inputs = inputs;
         }
 
         public static Gate Constant(int output, int value)
         {
-            return new Gate(output, value);
+            return new Gate(output, value, null);
         }
 
-        private Gate(int output, int value)
+        public static Gate Constant(int output, string signal)
+        {
+            return new Gate(output, 0, signal);
+        }
+
+        private Gate(int output, int value, string signal)
         {
             Kind = GateKind.Constant;
-            Output = output;
+            Outputs = new[] { output };
             Inputs = Array.Empty<int>();
             Value = value;
+            Signal = signal;
+        }
+
+        public static int InputCount(GateKind kind)
+        {
+            return kind switch
+            {
+                GateKind.Constant => 0,
+                GateKind.Not or GateKind.VirtualRotateCw or GateKind.VirtualRotateCcw or GateKind.VirtualHalfCut
+                    or GateKind.VirtualUnstack or GateKind.VirtualPushPin or GateKind.VirtualAnalyze => 1,
+                _ => 2
+            };
+        }
+
+        public static int OutputCount(GateKind kind)
+        {
+            return kind is GateKind.VirtualUnstack or GateKind.VirtualSwapHalves or GateKind.VirtualAnalyze ? 2 : 1;
+        }
+
+        public static bool IsVirtual(GateKind kind)
+        {
+            return kind >= GateKind.VirtualRotateCw;
         }
     }
 

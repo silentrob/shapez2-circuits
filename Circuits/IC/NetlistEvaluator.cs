@@ -4,18 +4,50 @@ using Game.Content.Features.Signals.Conductor;
 
 namespace Circuits.IC
 {
-    // Runs a netlist for one signal tick, matching the vanilla gates: boolean gates output IntegerSignal 1 or 0
-    // from truthiness, and a net driven by several sources merges them with the game's own rule (nothing plus
-    // X is X, two different values make a Conflict). Allocates nothing per tick.
+    // What a netlist needs from the game beyond its signal types: the shape operations its virtual processors run,
+    // and the signals its non-number constants hold. A package gets one from the game (GateResolver); without one,
+    // those gates drive nothing.
+    public interface IGateResolver
+    {
+        // IItemOperation1In1Out, 1In2Out, 2In1Out or 2In2Out, by the kind's inputs and outputs; null if unknown.
+        IItemOperation Operation(GateKind kind);
+
+        // A Constant gate's serialized signal; NullSignal if it cannot be read.
+        ISignal Constant(string signal);
+    }
+
+    // Runs a netlist for one signal tick, matching the vanilla gates and virtual processors: boolean gates output
+    // IntegerSignal 1 or 0 from truthiness, virtual processors run their shape operation when every input holds
+    // an item (as vanilla's Virtual*Simulation does) and drive nothing otherwise, and a net driven by several
+    // sources merges them with the game's own rule (nothing plus X is X, two different values make a Conflict).
+    // Everything the game resolves is looked up once, here; a tick allocates nothing.
     public sealed class NetlistEvaluator
     {
         private readonly Netlist Netlist;
         private readonly ISignal[] Nets;
+        private readonly IItemOperation[] Operations;
+        private readonly ISignal[] Constants;
 
-        public NetlistEvaluator(Netlist netlist)
+        public NetlistEvaluator(Netlist netlist, IGateResolver resolver = null)
         {
             Netlist = netlist;
             Nets = new ISignal[netlist.NetCount];
+            Operations = new IItemOperation[netlist.Gates.Length];
+            Constants = new ISignal[netlist.Gates.Length];
+            for (int i = 0; i < netlist.Gates.Length; i++)
+            {
+                Gate gate = netlist.Gates[i];
+                if (Gate.IsVirtual(gate.Kind))
+                {
+                    Operations[i] = resolver?.Operation(gate.Kind);
+                }
+                else if (gate.Kind == GateKind.Constant)
+                {
+                    Constants[i] = gate.Signal == null
+                        ? IntegerSignal.Get(gate.Value)
+                        : resolver?.Constant(gate.Signal) ?? NullSignal.Instance;
+                }
+            }
         }
 
         // sideInputs: the value arriving on each side. sideOutputs: filled with what each side drives; sides
@@ -32,9 +64,17 @@ namespace Circuits.IC
                 }
             }
 
-            foreach (Gate gate in Netlist.Gates)
+            for (int i = 0; i < Netlist.Gates.Length; i++)
             {
-                Drive(gate.Output, Compute(gate));
+                Gate gate = Netlist.Gates[i];
+                if (Gate.IsVirtual(gate.Kind))
+                {
+                    RunVirtual(gate, Operations[i]);
+                }
+                else
+                {
+                    Drive(gate.Output, gate.Kind == GateKind.Constant ? Constants[i] : Compute(gate));
+                }
             }
 
             for (int side = 0; side < Netlist.Connections; side++)
@@ -52,12 +92,9 @@ namespace Circuits.IC
 
         private ISignal Compute(Gate gate)
         {
-            switch (gate.Kind)
+            if (gate.Kind == GateKind.Transistor)
             {
-                case GateKind.Constant:
-                    return IntegerSignal.Get(gate.Value);
-                case GateKind.Transistor:
-                    return Nets[gate.Inputs[1]].IsTruthy() ? Nets[gate.Inputs[0]] : NullSignal.Instance;
+                return Nets[gate.Inputs[1]].IsTruthy() ? Nets[gate.Inputs[0]] : NullSignal.Instance;
             }
 
             bool a = Nets[gate.Inputs[0]].IsTruthy();
@@ -69,6 +106,39 @@ namespace Circuits.IC
                 GateKind.Not => IntegerSignal.Get(!a),
                 _ => throw new ArgumentOutOfRangeException(nameof(gate), gate.Kind, null)
             };
+        }
+
+        private void RunVirtual(Gate gate, IItemOperation operation)
+        {
+            ISignal first = NullSignal.Instance, second = NullSignal.Instance;
+            if (Nets[gate.Inputs[0]].TryGetItem(out IItem a))
+            {
+                switch (operation)
+                {
+                    case IItemOperation1In1Out one when one.TryExecute(a, out IItem output):
+                        first = output.GetSignal();
+                        break;
+                    case IItemOperation1In2Out split when split.TryExecute(a, out IItem output1, out IItem output2):
+                        first = output1.GetSignal();
+                        second = output2.GetSignal();
+                        break;
+                    case IItemOperation2In1Out join when Nets[gate.Inputs[1]].TryGetItem(out IItem b)
+                                                         && join.TryExecute(a, b, out IItem output):
+                        first = output.GetSignal();
+                        break;
+                    case IItemOperation2In2Out both when Nets[gate.Inputs[1]].TryGetItem(out IItem b)
+                                                         && both.TryExecute(a, b, out IItem output1, out IItem output2):
+                        first = output1.GetSignal();
+                        second = output2.GetSignal();
+                        break;
+                }
+            }
+
+            Drive(gate.Outputs[0], first);
+            if (gate.Outputs.Length > 1)
+            {
+                Drive(gate.Outputs[1], second);
+            }
         }
     }
 }

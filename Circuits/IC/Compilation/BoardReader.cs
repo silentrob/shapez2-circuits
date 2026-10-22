@@ -4,6 +4,7 @@ using System.Linq;
 using Game.Content.Features.Signals;
 using Game.Core.Content.Buildings;
 using Circuits.IC.Board;
+using Circuits.IC.Package;
 using Game.Core.Coordinates;
 
 namespace Circuits.IC.Compilation
@@ -24,6 +25,7 @@ namespace Circuits.IC.Compilation
         public static readonly BuildingDefinitionGroupId OutputNotchPinGroup = new("CircuitsICOutputNotchPinGroup");
 
         private static readonly BuildingDefinitionId Bridge = new("WireDefaultBridgeInternalVariant");
+        private const string Button = "ButtonDefaultVariant";
 
         private static readonly Dictionary<string, PartKind> KindsByGroup = new()
         {
@@ -38,7 +40,17 @@ namespace Circuits.IC.Compilation
             [InputPinGroup.Id] = PartKind.InputPin,
             [OutputPinGroup.Id] = PartKind.OutputPin,
             [InputNotchPinGroup.Id] = PartKind.InputPin,
-            [OutputNotchPinGroup.Id] = PartKind.OutputPin
+            [OutputNotchPinGroup.Id] = PartKind.OutputPin,
+            ["VirtualRotatorDefaultVariant"] = PartKind.VirtualRotateCw,
+            ["VirtualRotatorCCWVariant"] = PartKind.VirtualRotateCcw,
+            ["VirtualHalfCutterDefaultVariant"] = PartKind.VirtualHalfCut,
+            ["VirtualStackerDefaultVariant"] = PartKind.VirtualStack,
+            ["VirtualUnstackerDefaultVariant"] = PartKind.VirtualUnstack,
+            ["VirtualPainterDefaultVariant"] = PartKind.VirtualPaint,
+            ["VirtualCrystalGeneratorDefaultVariant"] = PartKind.VirtualCrystallize,
+            ["VirtualHalvesSwapperDefaultVariant"] = PartKind.VirtualSwapHalves,
+            ["VirtualPinPusherDefaultVariant"] = PartKind.VirtualPushPin,
+            ["VirtualAnalyzerDefaultVariant"] = PartKind.VirtualAnalyze
         };
 
         private const int ChunkTiles = 20;
@@ -67,6 +79,24 @@ namespace Circuits.IC.Compilation
                 if (group.StartsWith("Display"))
                 {
                     // Displays help test a board and do nothing inside a package.
+                    continue;
+                }
+
+                if (Firmware.IsChip(building))
+                {
+                    AddPackage(building, label, parts, errors);
+                    continue;
+                }
+
+                if (group == Button)
+                {
+                    // A button can't be pressed inside a package: it keeps the state it has on the board, sending
+                    // 1 while on and nothing while off, as the vanilla button does.
+                    if (building.Configuration is ButtonConfiguration { ToggleState: true })
+                    {
+                        parts.Add(new Part(PartKind.Constant, label, Ports(building), value: 1));
+                    }
+
                     continue;
                 }
 
@@ -113,12 +143,40 @@ namespace Circuits.IC.Compilation
             return parts;
         }
 
+        // A chip on the board: its firmware, with a port for each connection the firmware uses.
+        private static void AddPackage(BuildingModel building, string label, List<Part> parts, List<string> errors)
+        {
+            PackageShape shape = Firmware.ChipShape(building);
+            Netlist netlist = Firmware.ChipSettings(building)?.Netlist;
+            if (netlist == null || FirmwareText.IsEmpty(netlist) || !netlist.Shape.Equals(shape))
+            {
+                errors.Add($"{label} has no firmware: flash it, or remove it from the board.");
+                return;
+            }
+
+            var ports = new List<Port>();
+            var connections = new List<int>();
+            foreach (BuildingSignalTwoWay io in building.Definition.CustomData.Get<IBuildingConnectorData>()
+                        .BuildingConnectorsOfType<BuildingSignalTwoWay>())
+            {
+                int connection = io.ConnectionIn(shape);
+                SideRole role = netlist.SideRoles[connection];
+                if (role == SideRole.Unused)
+                {
+                    continue;
+                }
+
+                ports.Add(new Port(ToPivot(io.Pivot(building.Transform)), role == SideRole.Input ? PortKind.In : PortKind.Out));
+                connections.Add(connection);
+            }
+
+            parts.Add(new Part(label, ports.ToArray(), netlist, connections.ToArray()));
+        }
+
         private static void AddConstant(BuildingModel building, string label, Port[] ports, List<Part> parts, List<string> errors)
         {
-            ISignal value = building.Configuration is ConstantSignalConfiguration configuration
-                ? configuration.Value
-                : NullSignal.Instance;
-            switch (value)
+            var configuration = building.Configuration as ConstantSignalConfiguration;
+            switch (configuration?.Value ?? NullSignal.Instance)
             {
                 case NullSignal:
                     // An unset constant drives nothing, inside a package as on the board.
@@ -127,7 +185,8 @@ namespace Circuits.IC.Compilation
                     parts.Add(new Part(PartKind.Constant, label, ports, value: integer.Value));
                     break;
                 default:
-                    errors.Add($"{label} holds {value}; only number constants can be part of a circuit yet.");
+                    // A shape, a colour or any other value: kept as the game serializes it (see SignalBlob).
+                    parts.Add(new Part(label, ports, SignalBlob.Encode(configuration)));
                     break;
             }
         }

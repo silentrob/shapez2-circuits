@@ -5,7 +5,29 @@ namespace Circuits.IC.Compilation
     // The compiler's view of a board: what each building is and where its connectors are, without any game
     // types, so the compiler can be tested on its own. BoardReader builds these from the map.
 
-    public enum PartKind { Wire, And, Or, Xor, Not, Transistor, Constant, InputPin, OutputPin }
+    public enum PartKind
+    {
+        Wire,
+        And,
+        Or,
+        Xor,
+        Not,
+        Transistor,
+        Constant,
+        InputPin,
+        OutputPin,
+        VirtualRotateCw,
+        VirtualRotateCcw,
+        VirtualHalfCut,
+        VirtualStack,
+        VirtualUnstack,
+        VirtualPaint,
+        VirtualCrystallize,
+        VirtualSwapHalves,
+        VirtualPushPin,
+        VirtualAnalyze,
+        Package
+    }
 
     public enum PortKind { In, Out, Junction }
 
@@ -85,8 +107,9 @@ namespace Circuits.IC.Compilation
         // Pins only: the package connection the pin stands for (see PackageShape).
         public readonly int Connection;
 
-        // Constants only.
+        // Constants only: a number, or any other value serialized by the game (null for a number).
         public readonly int Value;
+        public readonly string Signal;
 
         public Part(PartKind kind, string label, Port[] ports, Side side = Side.North, int value = 0)
             : this(kind, label, ports, (int)side, value)
@@ -100,6 +123,26 @@ namespace Circuits.IC.Compilation
             Ports = ports;
             Connection = connection;
             Value = value;
+        }
+
+        // Packages only: the firmware the chip runs, and the connection each port is (inputs as In, outputs as
+        // Out; unused connections have no port).
+        public readonly Netlist Nested;
+        public readonly int[] PortConnections;
+
+        // A constant holding a value other than a number.
+        public Part(string label, Port[] ports, string signal)
+            : this(PartKind.Constant, label, ports, 0)
+        {
+            Signal = signal;
+        }
+
+        // A chip on the board, whose firmware the compiler copies in.
+        public Part(string label, Port[] ports, Netlist nested, int[] portConnections)
+            : this(PartKind.Package, label, ports, 0)
+        {
+            Nested = nested;
+            PortConnections = portConnections;
         }
     }
 }

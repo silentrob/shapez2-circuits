@@ -23,6 +23,8 @@
     "island-layout.CircuitsICBoard2x1.title": "IC Board 2x1",
     "island-layout.CircuitsICBoard2x1.description": "A two-chunk platform for designing <gl>integrated circuits</gl> for 2x1 chips, with six notches for <gl>IC Pins</gl>. Holds only signal buildings. Select the board and <gl>Build</gl> it into firmware from its panel.",
     "island-layout.CircuitsICBoard2x2.title": "IC Board 2x2",
-    "island-layout.CircuitsICBoard2x2.description": "A four-chunk platform for designing <gl>integrated circuits</gl> for 2x2 chips, with eight notches for <gl>IC Pins</gl>. Holds only signal buildings. Select the board and <gl>Build</gl> it into firmware from its panel."
+    "island-layout.CircuitsICBoard2x2.description": "A four-chunk platform for designing <gl>integrated circuits</gl> for 2x2 chips, with eight notches for <gl>IC Pins</gl>. Holds only signal buildings. Select the board and <gl>Build</gl> it into firmware from its panel.",
+    "toolbar.circuits-ic-boards.title": "IC Boards",
+    "toolbar.circuits-ic-boards.description": "Platforms for designing <gl>integrated circuits</gl>, one per chip size. Build a board into <gl>firmware</gl> and flash it onto IC chips."
   }
 }

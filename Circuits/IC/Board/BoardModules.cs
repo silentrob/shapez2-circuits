@@ -72,7 +72,7 @@ namespace Circuits.IC.Board
             }
 
             List<string> report = FirmwareText.BuildReport(board, settings.Name).ToList();
-            Inform(report[0].StartsWith("Built") ? "Firmware built" : "Build failed", string.Join("\n", report));
+            ICSession.Inform(report[0].StartsWith("Built") ? "Firmware built" : "Build failed", string.Join("\n", report));
         }
 
         private static void Restore(IslandModel board, BoardConfiguration settings, CircuitEntry entry)
@@ -84,7 +84,7 @@ namespace Circuits.IC.Board
             }
             else
             {
-                Inform("Restore failed", problem);
+                ICSession.Inform("Restore failed", problem);
             }
         }
 
@@ -105,12 +105,6 @@ namespace Circuits.IC.Board
                     then?.Invoke();
                 }
             });
-        }
-
-        private static void Inform(string title, string text)
-        {
-            ICSession.Dialogs.Show(Globals.Resources.UIDialogSimpleInfoPrefab)
-               .Init(new RawText(title), new RawText(text), "global.btn-ok".T());
         }
     }
 }

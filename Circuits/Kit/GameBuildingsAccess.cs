@@ -16,6 +16,14 @@ namespace Circuits.Kit
         public static void Register(GameBuildings gameBuildings, BuildingDefinitionGroup group, BuildingDefinition definition)
         {
             AddInternalVariant.Invoke(group, new object[] { definition });
+            RegisterOutsideGroup(gameBuildings, definition);
+        }
+
+        // Registers a definition the game can place, save and load, without listing it among its group's variants:
+        // the game's placers handle at most two variants per group (a building and its mirror). The definition
+        // still names its group in its custom data, for selection and research.
+        public static void RegisterOutsideGroup(GameBuildings gameBuildings, BuildingDefinition definition)
+        {
             ((Dictionary<BuildingDefinitionId, IBuildingDefinition>)DefinitionsById.GetValue(gameBuildings))
                .Add(definition.Id, definition);
         }

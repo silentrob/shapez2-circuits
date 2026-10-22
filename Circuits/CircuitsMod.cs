@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Circuits.IC;
 using Circuits.IC.Board;
 using Circuits.IC.Commands;
@@ -41,17 +42,24 @@ namespace Circuits
             MirroredBuildingBuilder latch = AddLatch(logger);
             MirroredLatchHandle = GameRewirers.AddRewirer(new MirroredLatchRewirer(latch, logger));
             // The IC buildings get their own group in the Wires toolbar, after Logic Gates (where the latch stays).
+            // Chips smallest first, then the pins (see ToolbarGroup).
             ModFolderLocator resources = ModDirectoryLocator.CreateLocator<CircuitsMod>().SubLocator("Resources");
+            UnityEngine.Sprite[] chipIcons = PackageShape.All
+               .Select(shape => FileTextureLoader.LoadTextureAsSprite(
+                    resources.SubPath(shape.Equals(PackageShape.Single) ? "IC_Icon.png" : $"IC_Chip{shape}_Icon.png"),
+                    out _))
+               .ToArray();
             var icToolbar = new ToolbarGroup(
                 AndGateGroup,
                 "toolbar.circuits-integrated-circuits.title",
                 "toolbar.circuits-integrated-circuits.description",
-                FileTextureLoader.LoadTextureAsSprite(resources.SubPath("IC_Icon.png"), out _));
+                chipIcons[0],
+                chipIcons);
 
             ICPackageRenderer.Logger = logger;
-            foreach (PackageShape shape in PackageShape.All)
+            for (int i = 0; i < PackageShape.All.Length; i++)
             {
-                AddICPackage(shape, icToolbar, logger);
+                AddICPackage(PackageShape.All[i], chipIcons[i], icToolbar, logger);
             }
 
             AddPins(icToolbar, logger);
@@ -248,14 +256,14 @@ namespace Circuits
 
         // A package of one shape, with a two-way side per connection, running the firmware in its configuration
         // (none when placed). The 1x1's ids predate the other shapes.
-        private static void AddICPackage(PackageShape shape, IToolbarEntryInsertLocation toolbar, ILogger logger)
+        private static void AddICPackage(PackageShape shape, UnityEngine.Sprite icon, IToolbarEntryInsertLocation toolbar, ILogger logger)
         {
             ModFolderLocator resources = ModDirectoryLocator.CreateLocator<CircuitsMod>().SubLocator("Resources");
-            string name = $"CircuitsICPackage{shape}";
+            string name = ChipVariants.Name(shape);
             IBuildingGroupBuilder group = BuildingGroup.Create(IC.Firmware.ChipGroupOf(shape))
                .WithTitle($"building-variant.{name}.title".T())
                .WithDescription($"building-variant.{name}.description".T())
-               .WithIcon(FileTextureLoader.LoadTextureAsSprite(resources.SubPath("IC_Icon.png"), out _))
+               .WithIcon(icon)
                .AsNonTransportableBuilding()
                .WithPreferredPlacement(DefaultPreferredPlacementMode.Single)
                .WithDefaultStructureOverview();
@@ -272,11 +280,15 @@ namespace Circuits
                .WithoutEfficiencyData();
 
             CustomSimulationBuilding.Register(
-                new AttachingBuildingBuilder(package, new ICPackageConfigurationFactory()),
+                new ChipVariantsBuilder(new AttachingBuildingBuilder(package, new ICPackageConfigurationFactory()), shape, drawData),
                 group,
                 new UnlockBuildingWithExistingSideUpgradeResearchProgressionExtender(new SideUpgradeUnlocking(AndGateGroup)),
                 toolbar,
-                (definition, _) => new ICPackageSimulationSystem(definition.Id, shape, logger),
+                (definition, dependencies) => new ICPackageSimulationSystem(
+                    definition.Id,
+                    shape,
+                    GateResolver.For(dependencies),
+                    logger),
                 _ => new ICPackageModules());
         }
 

@@ -19,10 +19,10 @@ namespace Circuits.IC.Package
         private readonly ISignal[] Arriving;
         private readonly ISignal[] Leaving;
 
-        public ICPackageSimulation(ICPackageSimulationState state, Netlist netlist) : base(state)
+        public ICPackageSimulation(ICPackageSimulationState state, Netlist netlist, IGateResolver resolver) : base(state)
         {
             Netlist = netlist;
-            Evaluator = new NetlistEvaluator(netlist);
+            Evaluator = new NetlistEvaluator(netlist, resolver);
             SideInputs = new SignalConductorInput[netlist.Connections];
             SideOutputs = new SignalConductorOutput[netlist.Connections];
             Arriving = new ISignal[netlist.Connections];

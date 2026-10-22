@@ -23,7 +23,14 @@ namespace Circuits.IC.Package
         // order, on the tile and edge each connection sits on (see PackageShape).
         public static IBuildingConnectorData For(PackageShape shape)
         {
+            return For(shape, ChipVariants.AllConnections(shape));
+        }
+
+        // As above, for only the connections given (a bit per connection; see ChipVariants).
+        public static IBuildingConnectorData For(PackageShape shape, int connections)
+        {
             IBuildingIO[] connectors = Enumerable.Range(0, shape.Connections)
+               .Where(connection => ChipVariants.Uses(connections, connection))
                .Select(connection =>
                 {
                     (int x, int y) = shape.Tile(connection);
@@ -46,6 +53,21 @@ namespace Circuits.IC.Package
                 tileBounds: bounds,
                 tileBoundsCenter: LocalVector.Lerp((LocalVector)bounds.Min, (LocalVector)bounds.Max, 0.5f),
                 tileDimensions: bounds.Dimensions);
+        }
+
+        public static Side SideOf(TileDirection direction)
+        {
+            if (direction == TileDirection.North) return Side.North;
+            if (direction == TileDirection.East) return Side.East;
+            if (direction == TileDirection.South) return Side.South;
+            return Side.West;
+        }
+
+        // The connection a connector is, by its tile and edge (see PackageShape).
+        public int ConnectionIn(PackageShape shape)
+        {
+            Side edge = SideOf(TileDirection);
+            return shape.IndexOf(edge, edge is Side.North or Side.South ? Position_L.x : Position_L.y);
         }
 
         public static TileDirection DirectionOf(Side side)

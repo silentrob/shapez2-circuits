@@ -16,7 +16,7 @@ namespace Circuits.IC
     // What can be done with firmware, shared by the console commands and the side panels:
     //   build a board's circuit into firmware, keeping the board's layout with it;
     //   flash firmware onto chips (IC packages), or update them to a newer revision;
-    //   restore a firmware's layout onto an empty board.
+    //   restore a firmware's layout onto an empty board, or start placing it as a new board (a blueprint).
     // Everything that changes the map goes through the game's undoable building action, scheduled between
     // simulation updates. Runs on the main thread.
     public static class Firmware
@@ -89,8 +89,9 @@ namespace Circuits.IC
             return ICSession.Library().Store(name, NetlistCodec.Encode(result.Netlist), CaptureLayout(board));
         }
 
-        // Flashes firmware onto chips by replacing each with a new chip holding it (see ICPackageConfiguration).
-        // Chips of another shape are left alone; false when none fit.
+        // Flashes firmware onto chips by replacing each with a new chip holding it (see ICPackageConfiguration),
+        // the variant that declares only the connections the firmware uses (see ChipVariants). Chips of another
+        // shape are left alone; false when none fit.
         public static bool Flash(IReadOnlyCollection<BuildingModel> chips, Netlist netlist, int revision)
         {
             chips = chips.Where(chip => Fits(chip, netlist)).ToList();
@@ -104,11 +105,22 @@ namespace Circuits.IC
             var place = chips
                .Select(chip => new PlaceBuildingPayload(
                     chip.Island.Id,
-                    chip.Definition,
+                    VariantFor(chip, netlist),
                     new ICPackageConfiguration(netlist, revision),
                     chip.Transform_I))
                .ToList();
             return Schedule(new ModifyBuildingsPayload(place, delete));
+        }
+
+        private static IBuildingDefinition VariantFor(BuildingModel chip, Netlist netlist)
+        {
+#pragma warning disable CS0618 // Obsolete static access, as vanilla's own static helpers use
+            return StaticGameCoreAccessor.G.Mode.Buildings.TryGetDefinition(
+                ChipVariants.Id(netlist.Shape, ChipVariants.ConnectionsOf(netlist)),
+                out IBuildingDefinition variant)
+                ? variant
+                : chip.Definition;
+#pragma warning restore CS0618
         }
 
         public static bool Flash(IReadOnlyCollection<BuildingModel> chips, CircuitEntry entry)
@@ -180,6 +192,63 @@ namespace Circuits.IC
 
             problem = null;
             return Schedule(new ModifyBuildingsPayload(place));
+        }
+
+        // Starts placing a new board holding a firmware's layout, named after the firmware, as the game places a
+        // platform blueprint: building it again continues the same firmware.
+        public static bool Edit(CircuitEntry entry, out string problem)
+        {
+            if (entry.Layout == null)
+            {
+                problem = $"{entry.Name} was built before boards were kept, so it has no board to edit.";
+                return false;
+            }
+
+#pragma warning disable CS0618 // Obsolete static access, as vanilla's own static helpers use
+            GameMode mode = StaticGameCoreAccessor.G.Mode;
+#pragma warning restore CS0618
+            if (!mode.Islands.TryGetDefinition(BoardIsland.IdOf(ShapeOf(entry)), out IIslandDefinition board))
+            {
+                problem = "The IC Board for this firmware is missing.";
+                return false;
+            }
+
+            var converter = Converter();
+            var buildings = new List<BuildingBlueprint.Entry>();
+            foreach (LayoutBuilding building in entry.Layout.Buildings)
+            {
+                if (!mode.Buildings.TryGetDefinition(new BuildingDefinitionId(building.Definition), out IBuildingDefinition definition))
+                {
+                    problem = $"{building.Definition} no longer exists in this game.";
+                    return false;
+                }
+
+                // Read in the game version it was saved with and written in the current one, as blueprints are.
+                byte[] configuration = null;
+                if (building.Configuration != null && definition.TryCreateConfiguration(out IBuildingConfiguration read))
+                {
+                    converter.DeserializeByteArrayIntoData(
+                        Convert.FromBase64String(building.Configuration),
+                        (GameVersion)entry.Layout.GameVersion,
+                        read.Sync);
+                    configuration = converter.SerializeDataIntoByteArray(read.Sync);
+                }
+
+                TileVector tile = new IslandTileCoordinate(building.X, building.Y, building.Z) - IslandTileCoordinate.Origin;
+                buildings.Add(new BuildingBlueprint.Entry(definition, tile, new GridRotation(building.Rotation), configuration));
+            }
+
+            var settings = new BoardConfiguration { Name = entry.Name };
+            var island = new IslandBlueprint.Entry(
+                board,
+                new ChunkVector(0, 0, 0),
+                new GridRotation((byte)0),
+                converter.SerializeDataIntoByteArray(settings.Sync),
+                buildings.Count > 0 ? BuildingBlueprint.FromEntriesModifyInPlace(buildings, recomputeOrigin: false) : null);
+            IslandBlueprint blueprint = IslandBlueprint.FromEntriesModifyInPlace(new List<IslandBlueprint.Entry> { island }, recomputeOrigin: true);
+            ICSession.Blueprints.StartBlueprintPlacement(AnnotatedIslandBlueprint.WithoutMeta(blueprint));
+            problem = null;
+            return true;
         }
 
         // The board shape a firmware was built on: its netlist's package shape.

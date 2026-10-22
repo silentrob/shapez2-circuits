@@ -379,7 +379,7 @@ Each one ends with something playable.
      sits on (section 3.3); a failed compile logs the board's tile map. Compiles wires, bridges, AND, OR, XOR, NOT,
      Transistor and number constants; displays are skipped. Refused with a message for now: feedback
      loops, latches, Compare, buttons, shape and color constants, virtual processors, transmitters and
-     nested packages.
+     nested packages. (Virtual processors and shape and color constants followed in milestone 5.)
    - **3b, the board platform (built).** The IC Board island (`IC/Board/BoardIsland`): one chunk with a
      notch on each side, like a 1×1 foundation, but no space belt connectors; in the Platforms toolbar
      after the 1×1 foundation. It has its own collision box, because ShapezShifter's bounding collider is
@@ -426,6 +426,29 @@ Each one ends with something playable.
      on shape), and save room for eight connections (package state v2). Toolbar entries that follow
      another mod entry fall back on a vanilla one, as the game adds mod entries in no set order; an island
      entry left among buildings switched the view mid-placement and blocked zooming in.
+   - **Virtual shape processors and value constants (built).** Section 3.5 always listed these as working
+     inside a package, but milestone 3a's compiler refused them and nothing tracked the gap; caught
+     2026-10-22. The ten virtual processors (rotators, half cutter, stacker, unstacker, painter, crystal
+     generator, halves swapper, pin pusher, analyzer) compile to gates that run the game's own shape
+     operations: `IC/Package/GateResolver` makes a `ShapeOperations` exactly as the game does for its virtual
+     buildings, and the evaluator runs one when every input holds an item and drives nothing otherwise, as
+     vanilla's `Virtual*Simulation` does. Inputs and outputs keep connector order; the unstacker, analyzer and
+     halves swapper have two outputs. A Constant Signal holding a shape, a colour or any other value keeps it
+     as the game serializes it (`IC/SignalBlob`). Netlist codec v4. Still refused: Compare, buttons,
+     transmitters, latches and loops.
+   - **Connections only where the firmware connects (built).** A chip declaring all its connections made wires
+     dock on unused ones. Connectors are fixed per building definition, so each shape has a hidden variant per
+     set of used connections (16, 64 and 256: the section 3.3 fallback, used here for docking rather than
+     direction), all in the chip's group (`IC/Package/ChipVariants`). Flashing places the variant matching the
+     firmware; sockets are drawn only on its connections. The every-connection variant keeps the original
+     id, so older chips load, and is the one the toolbar places: the game's placers take at most two
+     variants per group, so the others are registered outside the group's variant list.
+   - **Nested ICs and buttons (built).** A chip on a board compiles in (section 3.6): its firmware's gates join
+     the board's, each used connection on the board net its port touches, its other nets numbered after
+     the board's, so nesting any depth flattens to one netlist and runs no differently. A chip with no
+     firmware is refused, and so, for now, is one whose firmware joins two connections inside to separate
+     board wires. A button compiles to its board state, as section 3.5 says: on sends 1, off sends nothing,
+     as vanilla's does.
 6. **Release.** Package models, translations, Workshop page using the ShapezShifter logo, compatibility
    notes.
 
