@@ -171,7 +171,7 @@ Everything signal-based works; nothing that touches belts or fluids can be built
 | Constant Signal | Its value is copied in. |
 | Latch, and future Circuits gates | Keep per-package state (section 3.8). |
 | Virtual shape processors: rotators, half cutter, stacker, unstacker, painter, crystal generator, swapper, pin pusher, analyzer | Run the same shape operations as vanilla (`CreateVirtualProcessorSystems` builds them from `ShapeOperations`). |
-| Global and controlled signal transmitters and receivers | Share channels with the rest of the world, including vanilla's one-second channel delay. |
+| Global and controlled signal transmitters and receivers | **Not in V0** (decided 2026-10-22): refused when building firmware. Later, they would share channels with the rest of the world, including vanilla's one-second channel delay. |
 | Button | Keeps the state it had on the board; it cannot be pressed inside a package. |
 | Display | Allowed so a board can show values while testing; shows nothing inside a package. |
 | IC Package | Expanded inline (section 3.6). |
@@ -524,6 +524,9 @@ Each one ends with something playable.
      configuration, running vanilla's rule (`IC/CompareRule`): 1 or 0; Equal and Not Equal compare any two
      signals, the orderings hold only between two numbers. Netlist codec v8. Every vanilla logic gate now
      works inside a package.
+   - **Transmitters inside packages: not in V0** (decided 2026-10-22). Global and controlled transmitters and
+     receivers stay refused when building firmware. They would give a chip connections beyond its sides,
+     carrying the channels' one-second delay, which wants more thought than V0 allows. Revisit after release.
 6. **Release.** Package models, translations, Workshop page using the ShapezShifter logo, compatibility
    notes.
 
