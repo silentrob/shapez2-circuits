@@ -152,6 +152,11 @@ namespace Circuits.IC
 
         private ISignal Compute(int i, Gate gate)
         {
+            if (Gate.IsCompare(gate.Kind))
+            {
+                return CompareRule.Apply(gate.Kind, In(i, 0), In(i, 1));
+            }
+
             if (Gate.IsInteger(gate.Kind))
             {
                 IntegerOp op = Gate.IntegerOpOf(gate.Kind);

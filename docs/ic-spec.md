@@ -520,6 +520,10 @@ Each one ends with something playable.
      Pin; in from it, an Input Pin. The pin's wire end goes where the wire meets the notch, facing into the
      board, running along the notch whichever way fits. A wire meeting one of the notch's two middle tiles
      leaves no room for a 4x1 pin, so it gets none.
+   - **Compare gates (built).** The vanilla Compare gate compiles to one gate kind per comparison, read from its
+     configuration, running vanilla's rule (`IC/CompareRule`): 1 or 0; Equal and Not Equal compare any two
+     signals, the orderings hold only between two numbers. Netlist codec v8. Every vanilla logic gate now
+     works inside a package.
 6. **Release.** Package models, translations, Workshop page using the ShapezShifter logo, compatibility
    notes.
 

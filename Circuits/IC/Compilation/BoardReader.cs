@@ -27,6 +27,7 @@ namespace Circuits.IC.Compilation
 
         private static readonly BuildingDefinitionId Bridge = new("WireDefaultBridgeInternalVariant");
         private const string Button = "ButtonDefaultVariant";
+        private const string Compare = "LogicGateCompareVariant";
 
         private static readonly Dictionary<string, PartKind> KindsByGroup = new()
         {
@@ -94,6 +95,17 @@ namespace Circuits.IC.Compilation
                 {
                     // The operation the gate's configuration picks.
                     parts.Add(new Part(PartKind.Integer, label, Ports(building), value: (int)Gate.Integer(family.OpOf(building.Configuration))));
+                    continue;
+                }
+
+                if (group == Compare)
+                {
+                    // The comparison the gate's configuration picks, numbered as GateKind's Compare kinds are.
+                    LogicGateComparisonType comparison = building.Configuration is LogicGateCompareConfiguration compare
+                        ? compare.Comparison
+                        : LogicGateComparisonType.Equal;
+                    var compareKind = (GateKind)((int)GateKind.CompareEqual + (int)comparison - (int)LogicGateComparisonType.Equal);
+                    parts.Add(new Part(PartKind.Integer, label, Ports(building), value: (int)compareKind));
                     continue;
                 }
 

@@ -14,9 +14,10 @@ namespace Circuits.IC
     //   5: adds the Latch gate.
     //   6: adds the integer gates.
     //   7: a gate other than a Constant ends with which of its inputs read the previous tick (a byte of bits).
+    //   8: adds the Compare gates.
     public static class NetlistCodec
     {
-        private const int Version = 7;
+        private const int Version = 8;
 
         // Far beyond any real circuit; only guards against allocating from corrupt counts.
         private const int MaxCount = 1_000_000;
@@ -128,7 +129,8 @@ namespace Circuits.IC
                     if (!Enum.IsDefined(typeof(GateKind), kind) || inputCount != InputCount(kind)
                         || (version < 4 && kind > GateKind.Constant)
                         || (version < 5 && kind > GateKind.VirtualAnalyze)
-                        || (version < 6 && kind > GateKind.Latch))
+                        || (version < 6 && kind > GateKind.Latch)
+                        || (version < 8 && kind > GateKind.IntegerSubtract))
                     {
                         return false;
                     }

@@ -31,7 +31,7 @@ namespace Circuits.IntGates
     // The integer gates: buildings that work on the whole 32-bit number a wire carries (see IntegerOps), usable
     // on any platform and inside packages. Styled after the vanilla Compare gate: one building per family, its
     // operation picked from its side panel and drawn on top. Inputs come from the west (A) and north (B), the
-    // result goes east.
+    // result goes east; a two-input gate's mirrored variant (F) takes B from the south.
     public static class IntegerGates
     {
         public sealed class Family
@@ -106,24 +106,26 @@ namespace Circuits.IntGates
                .AsNonTransportableBuilding()
                .WithPreferredPlacement(DefaultPreferredPlacementMode.Single);
 
-            ISingleTileConnectorDataBuilder connectors = BuildingConnectors.SingleTile()
-               .AddWireInput(WireConnectorConfig.CustomInput(TileDirection.West));
-            if (family.Inputs == 2)
-            {
-                connectors = connectors.AddWireInput(WireConnectorConfig.CustomInput(TileDirection.North));
-            }
-
             var drawData = new IntegerGateDrawData(family);
             IBuildingBuilder building = Building.Create(new BuildingDefinitionId(family.Name))
-               .WithConnectorData(connectors.AddWireOutput(WireConnectorConfig.CustomOutput(TileDirection.East)).Build())
+               .WithConnectorData(Connectors(family, mirrored: false))
                .DynamicallyRendering<IntegerGateRenderer, IntegerGateSimulation, IntegerGateDrawData>(drawData)
-               .WithStaticDrawData(IntegerGateModel.DrawData(family, drawData))
+               .WithStaticDrawData(IntegerGateModel.DrawData(family, drawData, mirrored: false))
                .WithoutSound()
                .WithoutSimulationConfiguration()
                .WithoutEfficiencyData();
+            building = new AttachingBuildingBuilder(building, new IntegerGateConfigurationFactory());
+            if (family.Inputs == 2)
+            {
+                building = new MirroredVariantBuilder(
+                    building,
+                    new BuildingDefinitionId(family.Name + "Mirrored"),
+                    Connectors(family, mirrored: true),
+                    IntegerGateModel.DrawData(family, drawData, mirrored: true));
+            }
 
             CustomSimulationBuilding.Register(
-                new TextFromDisplayBuilder(new AttachingBuildingBuilder(building, new IntegerGateConfigurationFactory())),
+                new TextFromDisplayBuilder(building),
                 group,
                 new UnlockBuildingWithExistingSideUpgradeResearchProgressionExtender(new SideUpgradeUnlocking(unlockedWith)),
                 toolbar,
@@ -132,6 +134,20 @@ namespace Circuits.IntGates
                     definition.Id,
                     logger),
                 _ => new IntegerGateModules(family));
+        }
+
+        // A from the west, B from the north (the south when mirrored), the result to the east. The order of the
+        // inputs is the order the simulation binds them in.
+        private static IBuildingConnectorData Connectors(Family family, bool mirrored)
+        {
+            ISingleTileConnectorDataBuilder connectors = BuildingConnectors.SingleTile()
+               .AddWireInput(WireConnectorConfig.CustomInput(TileDirection.West));
+            if (family.Inputs == 2)
+            {
+                connectors = connectors.AddWireInput(WireConnectorConfig.CustomInput(mirrored ? TileDirection.South : TileDirection.North));
+            }
+
+            return connectors.AddWireOutput(WireConnectorConfig.CustomOutput(TileDirection.East)).Build();
         }
     }
 
@@ -204,7 +220,8 @@ namespace Circuits.IntGates
             OutputConductor = new SignalConductorOutput();
         }
 
-        // Receiver indices follow the order of the wire inputs in the connector data: A (west), then B (north).
+        // Receiver indices follow the order of the wire inputs in the connector data: A (west), then B (north, or
+        // south when mirrored).
         public ISignalReceiver GetSignalReceiver(int index)
         {
             return index == 0 ? AConductor : BConductor;
@@ -365,7 +382,8 @@ namespace Circuits.IntGates
     }
 
     // A gate's look, made in code in the style of the vanilla gates but in the board's teal: a dark base, a teal
-    // body with chamfered edges and a dark panel on top for the operation, and a socket on each pin's side.
+    // body with chamfered edges and a dark panel on top for the operation, and a socket on each pin's side (B's on
+    // the south when mirrored).
     public static class IntegerGateModel
     {
         private static readonly Vector2 Base = PaletteMesh.Cell(6, 3); // Pl: near-black
@@ -376,7 +394,7 @@ namespace Circuits.IntGates
 
         public const float Top = 0.3f;
 
-        public static BuildingDrawData DrawData(IntegerGates.Family family, IBuildingCustomDrawData customDrawData)
+        public static BuildingDrawData DrawData(IntegerGates.Family family, IBuildingCustomDrawData customDrawData, bool mirrored)
         {
             var mesh = new PaletteMesh()
                .Chamfered(new(-0.44f, 0f, -0.44f), new(0.44f, 0.06f, 0.44f), 0.03f, Base)
@@ -386,10 +404,14 @@ namespace Circuits.IntGates
                .Box(new(0.37f, 0.03f, -0.06f), new(0.5f, 0.15f, 0.06f), Out);
             if (family.Inputs == 2)
             {
-                mesh.Box(new(-0.06f, 0.03f, 0.37f), new(0.06f, 0.15f, 0.5f), Socket);
+                // Mesh space has z north.
+                mesh.Box(
+                    new(-0.06f, 0.03f, mirrored ? -0.5f : 0.37f),
+                    new(0.06f, 0.15f, mirrored ? -0.37f : 0.5f),
+                    Socket);
             }
 
-            Mesh built = mesh.Build(family.Name);
+            Mesh built = mesh.Build(mirrored ? family.Name + "Mirrored" : family.Name);
             LOD6Mesh lods = MeshLod.Create().AddLod0Mesh(built).BuildLod6Mesh();
             ((ILODMesh)lods).TryGet(0, out IMeshReference closest);
             return new BuildingDrawData(

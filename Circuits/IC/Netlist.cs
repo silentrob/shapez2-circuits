@@ -14,7 +14,8 @@ namespace Circuits.IC
     // serialized by the game) when it has one. The Virtual kinds are the vanilla virtual shape processors, run
     // with the game's own shape operations (see IGateResolver), inputs and outputs in their connector order.
     // Latch is the Circuits latch (inputs Data, Reset): it keeps a value between ticks (see LatchRule). The
-    // Integer kinds are the Circuits integer gates, in IntegerOp's order (see IntegerOps).
+    // Integer kinds are the Circuits integer gates, in IntegerOp's order (see IntegerOps). The Compare kinds are
+    // the vanilla Compare gate's modes (see CompareRule).
     public enum GateKind
     {
         And,
@@ -41,7 +42,13 @@ namespace Circuits.IC
         IntegerShiftLeft,
         IntegerShiftRight,
         IntegerAdd,
-        IntegerSubtract
+        IntegerSubtract,
+        CompareEqual,
+        CompareGreaterEqual,
+        CompareGreater,
+        CompareLess,
+        CompareLessEqual,
+        CompareNotEqual
     }
 
     public sealed class Gate
@@ -123,7 +130,12 @@ namespace Circuits.IC
 
         public static bool IsInteger(GateKind kind)
         {
-            return kind >= GateKind.IntegerAnd;
+            return kind >= GateKind.IntegerAnd && kind <= GateKind.IntegerSubtract;
+        }
+
+        public static bool IsCompare(GateKind kind)
+        {
+            return kind >= GateKind.CompareEqual;
         }
 
         public static GateKind Integer(IntegerOp op)

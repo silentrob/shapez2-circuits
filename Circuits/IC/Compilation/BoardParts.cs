@@ -110,7 +110,7 @@ namespace Circuits.IC.Compilation
         public readonly int Connection;
 
         // Constants: a number, or any other value serialized by the game (Signal; null for a number). Integer
-        // gates: the GateKind their mode compiles to.
+        // and Compare gates (PartKind.Integer): the GateKind their mode compiles to.
         public readonly int Value;
         public readonly string Signal;
 
