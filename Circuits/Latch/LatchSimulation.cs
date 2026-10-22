@@ -46,19 +46,9 @@ namespace Circuits.Latch
                 SignalTicks tick = new(first.NumOfTicks + i);
                 DataConductor.TryPopSignal(startTicks, tick, out ISignal data);
                 ResetConductor.TryPopSignal(startTicks, tick, out ISignal reset);
-                State.Held = Next(State.Held, data, reset);
+                State.Held = LatchRule.Next(State.Held, data, reset);
                 OutputConductor.PushSignal(State.Held, startTicks, tick);
             }
-        }
-
-        public static ISignal Next(ISignal held, ISignal data, ISignal reset)
-        {
-            if (reset.IsTruthy())
-            {
-                return NullSignal.Instance;
-            }
-
-            return data.IsTruthy() ? data : held;
         }
     }
 }

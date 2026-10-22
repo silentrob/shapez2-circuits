@@ -493,6 +493,10 @@ Each one ends with something playable.
    - **Next, in order (decided 2026-10-22).** Latches inside packages, as stateful gates (section 3.8);
      integer gates, usable anywhere (section 3.13); then feedback loops, calibrated against reference
      loops built on a board (section 3.8).
+   - **Latches inside packages (built).** A Latch gate (inputs Data then Reset, in connector order) runs the
+     same rule as the latch building (`Latch/LatchRule`), in the same tick, so it adds no delay. What each
+     latch holds lives in the package state (v3, after the connections) and survives saving; netlist codec
+     v5. A latch on a chip nested in a board is copied in like any gate, with its own slot.
 6. **Release.** Package models, translations, Workshop page using the ShapezShifter logo, compatibility
    notes.
 

@@ -50,7 +50,8 @@ namespace Circuits.IC.Compilation
             ["VirtualCrystalGeneratorDefaultVariant"] = PartKind.VirtualCrystallize,
             ["VirtualHalvesSwapperDefaultVariant"] = PartKind.VirtualSwapHalves,
             ["VirtualPinPusherDefaultVariant"] = PartKind.VirtualPushPin,
-            ["VirtualAnalyzerDefaultVariant"] = PartKind.VirtualAnalyze
+            ["VirtualAnalyzerDefaultVariant"] = PartKind.VirtualAnalyze,
+            ["CircuitsLatchGroup"] = PartKind.Latch
         };
 
         private const int ChunkTiles = 20;

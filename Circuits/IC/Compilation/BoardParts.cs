@@ -26,7 +26,8 @@ namespace Circuits.IC.Compilation
         VirtualSwapHalves,
         VirtualPushPin,
         VirtualAnalyze,
-        Package
+        Package,
+        Latch
     }
 
     public enum PortKind { In, Out, Junction }

@@ -22,7 +22,9 @@ namespace Circuits.IC.Package
         public ICPackageSimulation(ICPackageSimulationState state, Netlist netlist, IGateResolver resolver) : base(state)
         {
             Netlist = netlist;
-            Evaluator = new NetlistEvaluator(netlist, resolver);
+            // The evaluator keeps latch values in the state's array, so they are saved with the package.
+            Evaluator = new NetlistEvaluator(netlist, resolver, state.Held);
+            state.Held = Evaluator.Held;
             SideInputs = new SignalConductorInput[netlist.Connections];
             SideOutputs = new SignalConductorOutput[netlist.Connections];
             Arriving = new ISignal[netlist.Connections];

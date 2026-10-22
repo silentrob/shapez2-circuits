@@ -1,5 +1,6 @@
 using System;
 using Game.Content.Features.Signals;
+using Circuits.Latch;
 using Game.Content.Features.Signals.Conductor;
 
 namespace Circuits.IC
@@ -16,7 +17,8 @@ namespace Circuits.IC
         ISignal Constant(string signal);
     }
 
-    // Runs a netlist for one signal tick, matching the vanilla gates and virtual processors: boolean gates output
+    // Runs a netlist for one signal tick, matching the vanilla gates, virtual processors and the Circuits latch,
+    // whose values are kept in the array the package saves (Held, one per latch, in gate order). Boolean gates output
     // IntegerSignal 1 or 0 from truthiness, virtual processors run their shape operation when every input holds
     // an item (as vanilla's Virtual*Simulation does) and drive nothing otherwise, and a net driven by several
     // sources merges them with the game's own rule (nothing plus X is X, two different values make a Conflict).
@@ -27,17 +29,27 @@ namespace Circuits.IC
         private readonly ISignal[] Nets;
         private readonly IItemOperation[] Operations;
         private readonly ISignal[] Constants;
+        private readonly int[] LatchSlots;
 
-        public NetlistEvaluator(Netlist netlist, IGateResolver resolver = null)
+        // What each latch holds, carried from tick to tick; a package passes the array its state saves.
+        public readonly ISignal[] Held;
+
+        public NetlistEvaluator(Netlist netlist, IGateResolver resolver = null, ISignal[] held = null)
         {
             Netlist = netlist;
             Nets = new ISignal[netlist.NetCount];
             Operations = new IItemOperation[netlist.Gates.Length];
             Constants = new ISignal[netlist.Gates.Length];
+            LatchSlots = new int[netlist.Gates.Length];
+            int latches = 0;
             for (int i = 0; i < netlist.Gates.Length; i++)
             {
                 Gate gate = netlist.Gates[i];
-                if (Gate.IsVirtual(gate.Kind))
+                if (gate.Kind == GateKind.Latch)
+                {
+                    LatchSlots[i] = latches++;
+                }
+                else if (Gate.IsVirtual(gate.Kind))
                 {
                     Operations[i] = resolver?.Operation(gate.Kind);
                 }
@@ -47,6 +59,12 @@ namespace Circuits.IC
                         ? IntegerSignal.Get(gate.Value)
                         : resolver?.Constant(gate.Signal) ?? NullSignal.Instance;
                 }
+            }
+
+            Held = held != null && held.Length == latches ? held : new ISignal[latches];
+            for (int slot = 0; slot < Held.Length; slot++)
+            {
+                Held[slot] ??= NullSignal.Instance;
             }
         }
 
@@ -67,7 +85,13 @@ namespace Circuits.IC
             for (int i = 0; i < Netlist.Gates.Length; i++)
             {
                 Gate gate = Netlist.Gates[i];
-                if (Gate.IsVirtual(gate.Kind))
+                if (gate.Kind == GateKind.Latch)
+                {
+                    int slot = LatchSlots[i];
+                    Held[slot] = LatchRule.Next(Held[slot], Nets[gate.Inputs[0]], Nets[gate.Inputs[1]]);
+                    Drive(gate.Output, Held[slot]);
+                }
+                else if (Gate.IsVirtual(gate.Kind))
                 {
                     RunVirtual(gate, Operations[i]);
                 }

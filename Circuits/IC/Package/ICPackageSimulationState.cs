@@ -1,4 +1,6 @@
+using System;
 using System.Linq;
+using Game.Content.Features.Signals;
 using Game.Content.Features.Signals.Conductor;
 using Game.Core.Serialization;
 using Game.Core.Simulation;
@@ -9,15 +11,19 @@ namespace Circuits.IC.Package
     // one uses the first of them. The identifier is written into savegames: never rename it.
     //   1: four connections (1x1 packages only).
     //   2: MaxConnections connections.
+    //   3: adds what each latch in the firmware holds, after the connections.
     [SyncableIdentifier("Circuits.ICPackageState")]
     public class ICPackageSimulationState : ISimulationState
     {
-        private const int Version = 2;
+        private const int Version = 3;
 
         public const int MaxConnections = 8;
 
         public readonly SignalConductorInputState[] SideInputStates =
             Enumerable.Range(0, MaxConnections).Select(_ => new SignalConductorInputState()).ToArray();
+
+        // What each latch in the firmware holds (see NetlistEvaluator.Held); sized by the simulation.
+        public ISignal[] Held = Array.Empty<ISignal>();
 
         // A state saves through the input attached to it. The simulation attaches one to each connection it uses;
         // these keep the rest (a smaller package's) saveable.
@@ -37,6 +43,21 @@ namespace Circuits.IC.Package
             for (int side = 0; side < count; side++)
             {
                 SideInputStates[side].Sync(visitor);
+            }
+
+            if (version >= 3)
+            {
+                int latches = Held.Length;
+                visitor.SyncInt_4(ref latches);
+                if (latches != Held.Length)
+                {
+                    Held = new ISignal[latches];
+                }
+
+                for (int slot = 0; slot < latches; slot++)
+                {
+                    visitor.GetSerializer<ISignal>().Sync(ref Held[slot]);
+                }
             }
         }
     }

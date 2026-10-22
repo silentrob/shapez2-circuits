@@ -12,6 +12,7 @@ namespace Circuits.IC
     // truthy; Constant has no inputs and outputs its Value as an IntegerSignal, or its Signal (any other value,
     // serialized by the game) when it has one. The Virtual kinds are the vanilla virtual shape processors, run
     // with the game's own shape operations (see IGateResolver), inputs and outputs in their connector order.
+    // Latch is the Circuits latch (inputs Data, Reset): it keeps a value between ticks (see LatchRule).
     public enum GateKind
     {
         And,
@@ -29,7 +30,8 @@ namespace Circuits.IC
         VirtualCrystallize,
         VirtualSwapHalves,
         VirtualPushPin,
-        VirtualAnalyze
+        VirtualAnalyze,
+        Latch
     }
 
     public sealed class Gate
@@ -89,7 +91,7 @@ namespace Circuits.IC
 
         public static bool IsVirtual(GateKind kind)
         {
-            return kind >= GateKind.VirtualRotateCw;
+            return kind >= GateKind.VirtualRotateCw && kind <= GateKind.VirtualAnalyze;
         }
     }
 
@@ -98,6 +100,9 @@ namespace Circuits.IC
     // order (every gate after the gates driving its inputs).
     public sealed class Netlist
     {
+        // How many gates keep a value between ticks (latches), which a package saves.
+        public int Latches => Gates.Count(gate => gate.Kind == GateKind.Latch);
+
         // A 1x1 package's connections.
         public const int SideCount = 4;
 

@@ -274,6 +274,7 @@ namespace Circuits.IC.Compilation
                 PartKind.VirtualSwapHalves => GateKind.VirtualSwapHalves,
                 PartKind.VirtualPushPin => GateKind.VirtualPushPin,
                 PartKind.VirtualAnalyze => GateKind.VirtualAnalyze,
+                PartKind.Latch => GateKind.Latch,
                 _ => throw new ArgumentOutOfRangeException(nameof(part), part.Kind, null)
             };
 
