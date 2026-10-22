@@ -275,8 +275,29 @@ of section 3.3 work, since the fallback grows too fast beyond 2×2.
 
 Node limit per package: 256 after expansion, to be tuned once measured.
 
-Models: a plain generated box with side markers in v1, so input and output sides can be told apart once a
-circuit is loaded. Proper models later.
+**Model (built, 1×1).** Made in code (`IC/Package/ICPackageModel`, `Kit/PaletteMesh`): a near-black chip
+body, a silver socket mid-side where a wire plugs in, a leg either side of it, and an accent-coloured bar on
+the north edge marking the top (pin 1), so orientation is clear however a package is rotated. On each side
+the loaded circuit uses, a live arrow lies on the body, pointing in for an input or out for an output,
+silver while that side's signal is on and grey while off (`ICPackageRenderer`).
+
+Findings, for future models:
+
+- **Colour comes from UVs.** The building material (`UberBuildingMinimalMaterial`) colours a mesh by where
+  each vertex's UV points in its 16×16 palette texture (`_MaterialLUT`), cell centre `((col+0.5)/16,
+  1-(row+0.5)/16)`; the game's own accent recolouring shifts these UVs (`AccentColorMeshCreator`).
+  `circuits.dumppalette` saves the texture (`Kit/TextureDump`). Columns, as labelled in it: Ac accent, Em,
+  Mb, Mn, Mc, Pl, Br, Gr.
+- **Some cells glow.** The Em column and the accent rows after the first are emissive and bloom into a
+  glare on small shapes; so do the wire materials (`WireActiveTruthyMaterial` and friends). The Mc column
+  renders dark and metallic. Plain and safe: Pl (dark greys), Mb (silvers), Ac row 1 (accent orange).
+- **Double-sided faces need their own vertices.** Sharing vertices between a face and its back averages
+  their normals to zero, and an unlit face renders near-black whatever its colour.
+- **Packages need their own renderer base.** The game picks a renderer by (connectable simulation type,
+  simulation type), and its building renderers are fixed to `ConnectableBuildingSimulation`; packages use
+  `ICConnectableSimulation`, so `Kit/ConnectableRenderer` ports the vanilla per-chunk draw loop for any
+  connectable type. ShapezShifter's `DynamicallyRendering` still needs a vanilla-style renderer type as a
+  constraint, satisfied by a placeholder that never draws (`ICPackageDrawDataCarrier`).
 
 Packages are mirrorable with F, using the mirrored-variant builder the latch already uses: mirroring a
 package swaps its north and south connections, as the game does for every mirrored building.
@@ -347,8 +368,15 @@ Each one ends with something playable.
      Transistor and number constants; displays are skipped. Refused with a message for now: feedback
      loops, latches, Compare, buttons, shape and color constants, virtual processors, transmitters and
      nested packages.
-   - **3b, the board platform.** The dedicated IC Board island type, its placement rules (only
-     signal buildings; pins only on boards) and its name and GUID.
+   - **3b, the board platform (built).** The IC Board island (`IC/Board/BoardIsland`): one chunk with a
+     notch on each side, like a 1×1 foundation, but no space belt connectors; in the Platforms toolbar
+     after the 1×1 foundation. Circuits compile only on a board. Placement rules
+     (`IC/Board/BoardPlacementRules`, a hook on `BaseMapInteractionMode.AllowBuildingGroup`, which both
+     placement and its preview ask): a board takes only buildings whose connectors are all signal
+     connectors, and no wire transmitters to neighbouring platforms; pins go only on boards. The package
+     and pins sit in their own **Integrated Circuits** group in the Wires toolbar, after Logic Gates
+     (`Kit/ToolbarGroup`); the latch stays among the gates. The board's name and GUID move to milestone 4,
+     with its side panel.
 4. **UI.** Side panels for board, pin and package; load dialog; update flow; compile errors shown on
    the board.
 5. **Depth.** 2×1 and 2×2 boards and packages, nested ICs, virtual shape processors and channels inside

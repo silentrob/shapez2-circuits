@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Game.Content.Features.Signals;
 using Game.Core.Content.Buildings;
+using Circuits.IC.Board;
 using Game.Core.Coordinates;
 
 namespace Circuits.IC.Compilation
@@ -10,7 +11,7 @@ namespace Circuits.IC.Compilation
     // Reads a board platform into the compiler's parts. Runs on the main thread, between simulation updates,
     // and reads only the map, never the simulation.
     //
-    // A board is a 1x1-chunk platform for now. Which side of the package a pin stands for is the board edge it
+    // A board is an IC Board platform (one chunk). Which side of the package a pin stands for is the board edge it
     // sits on, measured in the platform's own frame, so a rotated board still compiles the same circuit. A pin
     // is on an edge when the next tile outward is not buildable, which follows the platform's real outline
     // (its inset border and notches) rather than the chunk's 20x20 square.
@@ -40,9 +41,9 @@ namespace Circuits.IC.Compilation
         public static IReadOnlyList<Part> Read(IslandModel board, List<string> errors)
         {
             var parts = new List<Part>();
-            if (board.Chunks.Count() != 1)
+            if (board.DefinitionId != BoardIsland.Id)
             {
-                errors.Add("Boards are single-chunk (1x1) platforms for now.");
+                errors.Add("Circuits are compiled on an IC Board: place one from the Platforms toolbar.");
                 return parts;
             }
 

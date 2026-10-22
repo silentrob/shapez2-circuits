@@ -80,6 +80,7 @@ namespace Circuits.IC.Commands
                     new DebugConsole.StringOption("circuit"),
                     Logged(context => Load(context, player, actions)));
                 console.Register("circuits.info", Logged(context => Info(context, player)));
+                console.Register("circuits.dumppalette", Logged(DumpPalette));
             }
             catch (Exception e)
             {
@@ -141,6 +142,13 @@ namespace Circuits.IC.Commands
             context.Output(
                 $"Compiled {entry.Name} (revision {entry.Revision}): {result.Netlist.DescribeSides()}, "
                 + $"{result.Netlist.Gates.Length} gate(s). Load it with circuits.load {entry.Name}.");
+        }
+
+        // Development aid for the IC model's colours: see TextureDump.
+        private static void DumpPalette(DebugConsole.CommandContext context)
+        {
+            ICPackageRenderer.DumpPaletteRequested = true;
+            context.Output("The building palette will be saved to the mod's palette-dump folder the next time an IC Package is on screen.");
         }
 
         private void List(DebugConsole.CommandContext context)

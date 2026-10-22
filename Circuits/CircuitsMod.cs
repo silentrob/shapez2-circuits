@@ -1,4 +1,5 @@
 using System;
+using Circuits.IC.Board;
 using Circuits.IC.Commands;
 using Circuits.IC.Compilation;
 using Circuits.IC.Library;
@@ -11,6 +12,7 @@ using JetBrains.Annotations;
 using ShapezShifter.Flow;
 using ShapezShifter.Flow.Atomic;
 using ShapezShifter.Flow.Research;
+using ShapezShifter.Flow.Toolbar;
 using ShapezShifter.Hijack;
 using ShapezShifter.Kit;
 using ShapezShifter.Textures;
@@ -31,13 +33,28 @@ namespace Circuits
         private readonly RewirerHandle MirroredLatchHandle;
         private readonly TwoWayCompatibilityHooks TwoWayHooks;
         private readonly ICConsoleCommands Commands;
+        private readonly BoardPlacementRules BoardRules;
 
         public CircuitsMod(ILogger logger)
         {
             MirroredBuildingBuilder latch = AddLatch(logger);
             MirroredLatchHandle = GameRewirers.AddRewirer(new MirroredLatchRewirer(latch, logger));
-            BuildingDefinitionGroupId packageGroup = AddICPackage(logger);
-            AddPins(logger);
+            // The IC buildings get their own group in the Wires toolbar, after Logic Gates (where the latch stays).
+            ModFolderLocator resources = ModDirectoryLocator.CreateLocator<CircuitsMod>().SubLocator("Resources");
+            var icToolbar = new ToolbarGroup(
+                AndGateGroup,
+                "toolbar.circuits-integrated-circuits.title",
+                "toolbar.circuits-integrated-circuits.description",
+                FileTextureLoader.LoadTextureAsSprite(resources.SubPath("IC_Icon.png"), out _));
+
+            ICPackageRenderer.Logger = logger;
+            BuildingDefinitionGroupId packageGroup = AddICPackage(icToolbar, logger);
+            AddPins(icToolbar, logger);
+            BoardIsland.Register(AndGateGroup, logger);
+            BoardRules = Optional(
+                () => new BoardPlacementRules(),
+                "IC Boards accept any building and pins can go on any platform",
+                logger);
             this.AttachSaveData<CircuitLibrary>();
             TwoWayHooks = Optional(
                 () => new TwoWayCompatibilityHooks(),
@@ -54,6 +71,7 @@ namespace Circuits
             GameRewirers.RemoveRewirer(MirroredLatchHandle);
             TwoWayHooks?.Dispose();
             Commands?.Dispose();
+            BoardRules?.Dispose();
         }
 
         // For hooks into private game code, which a game update can break: the mod carries on without the
@@ -126,7 +144,7 @@ namespace Circuits
         // Pins mark a board's interface. They are copies of vanilla buildings, so testing a board live uses
         // the game's own tools: an Input Pin is a Constant Signal (its value dialog sets the test input) and an
         // Output Pin is a Display (it shows what reaches it). BoardReader tells them apart by their groups.
-        private static void AddPins(ILogger logger)
+        private static void AddPins(IToolbarEntryInsertLocation toolbar, ILogger logger)
         {
             var constantSignal = new BuildingDefinitionId("ConstantSignalDefaultInternalVariant");
             AddPin(
@@ -138,6 +156,7 @@ namespace Circuits
                     new ConstantSignalSimulationFactory(),
                     definition.Id,
                     logger),
+                toolbar,
                 logger);
 
             var display = new BuildingDefinitionId("DisplayDefaultInternalVariant");
@@ -150,6 +169,7 @@ namespace Circuits
                     new DisplaySimulationFactory(),
                     definition.Id,
                     logger),
+                toolbar,
                 logger);
         }
 
@@ -159,6 +179,7 @@ namespace Circuits
             string icon,
             BuildingDefinitionId vanilla,
             Func<BuildingDefinition, SimulationSystemsDependencies, ISimulationSystem> simulation,
+            IToolbarEntryInsertLocation toolbar,
             ILogger logger)
         {
             ModFolderLocator resources = ModDirectoryLocator.CreateLocator<CircuitsMod>().SubLocator("Resources");
@@ -176,13 +197,13 @@ namespace Circuits
                 new VanillaCloneBuilder(vanilla, new BuildingDefinitionId(name)),
                 group,
                 new UnlockBuildingWithExistingSideUpgradeResearchProgressionExtender(new SideUpgradeUnlocking(AndGateGroup)),
-                new AfterToolbarEntry(AndGateGroup, logger),
+                toolbar,
                 simulation,
                 lookup => VanillaSidePanel.Of(lookup, vanilla));
         }
 
         // A 1x1 package with four two-way sides, running the circuit in its configuration (empty when placed).
-        private static BuildingDefinitionGroupId AddICPackage(ILogger logger)
+        private static BuildingDefinitionGroupId AddICPackage(IToolbarEntryInsertLocation toolbar, ILogger logger)
         {
             ModFolderLocator resources = ModDirectoryLocator.CreateLocator<CircuitsMod>().SubLocator("Resources");
             var groupId = new BuildingDefinitionGroupId("CircuitsICPackage1x1Group");
@@ -196,11 +217,12 @@ namespace Circuits
                .WithDefaultStructureOverview();
 
             IBuildingConnectorData connectors = BuildingSignalTwoWay.SingleTile();
+            var drawData = new ICPackageDrawData();
 
             IBuildingBuilder package = Building.Create(new BuildingDefinitionId("CircuitsICPackage1x1"))
                .WithConnectorData(connectors)
-               .DynamicallyRendering<ICPackageRenderer, ICPackageSimulation, ICPackageDrawData>(new ICPackageDrawData())
-               .WithCopiedStaticDrawData(new BuildingDefinitionId("LogicGateAndInternalVariant"))
+               .DynamicallyRendering<ICPackageDrawDataCarrier, ICPackageSimulation, ICPackageDrawData>(drawData)
+               .WithStaticDrawData(ICPackageModel.DrawData(drawData))
                .WithoutSound()
                .WithoutSimulationConfiguration()
                .WithoutEfficiencyData();
@@ -209,7 +231,7 @@ namespace Circuits
                 new AttachingBuildingBuilder(package, new ICPackageConfigurationFactory()),
                 group,
                 new UnlockBuildingWithExistingSideUpgradeResearchProgressionExtender(new SideUpgradeUnlocking(AndGateGroup)),
-                new AfterToolbarEntry(AndGateGroup, logger),
+                toolbar,
                 (definition, _) => new ICPackageSimulationSystem(definition.Id, logger),
                 _ => new ICPackageModules());
 
