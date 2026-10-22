@@ -1,7 +1,7 @@
 {
   "Version": "0.1.0",
   "Title": "Circuits",
-  "Description": "Logic components for wires: a latch that holds a signal until reset, and integrated circuits.",
+  "Description": "Logic for wires: design circuits on IC Boards, build them into firmware and run them on chips; plus a latch and integer gates.",
   "Author": "Rob Ellis",
   "SavedModVersionCompabilityRangeWithSelf": "<0.2.0",
   "GameVersionSupportRange": "*",
