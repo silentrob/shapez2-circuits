@@ -410,8 +410,11 @@ Each one ends with something playable.
       end and a mirrored variant (F) for the other (`IC/Board/PinModel`, `Kit/ReshapedCloneBuilder`: a vanilla
       Constant Signal or Display in a new shape and model, its value drawn smaller and centred in a bezel).
       Only notches count for them. The 1×1 pins stay registered for existing boards, off the toolbar.
-   2. **Board surface (next).** A thinner frame through `ChunkPlatformDrawingContext` and a PCB overlay mesh
-      through the island's `IslandMeshDrawer.Data`; the floor material itself is shared by every platform.
+   2. **Board surface (built).** The machine frame is off (an empty `ChunkPlatformDrawingContext`), and
+      `IC/Board/BoardModel` draws a circuit board through the island's `IslandMeshDrawer.Data` with the
+      building material: a teal substrate under the floor's edge, an accent line around the play area broken
+      at the notches, traces and pads on the border, and a mounting hole in each corner. The floor and its grid
+      stay vanilla, since every platform shares the floor material.
 5. **Depth.** 2×1 and 2×2 boards and packages, nested ICs, virtual shape processors and channels inside
    ICs, the jump-to-board hotkey.
 6. **Release.** Package models, translations, Workshop page using the ShapezShifter logo, compatibility

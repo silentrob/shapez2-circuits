@@ -46,7 +46,8 @@ namespace Circuits.IC.Board
                     layout.GetChunkPositions()))
                .WithInteraction(flippable: false, canHoldBuildings: true)
                .WithDefaultChunkCost()
-               .WithRenderingOptions(new HomogeneousChunkDrawing(ChunkPlatformDrawingContext.DrawAll()), drawPlayingField: true);
+               // No machine frame: BoardModel draws a circuit board around the floor instead.
+               .WithRenderingOptions(new HomogeneousChunkDrawing(new ChunkPlatformDrawingContext()), drawPlayingField: true);
 
             AtomicIslands.Extend()
                .AllScenarios()

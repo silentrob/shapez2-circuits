@@ -30,7 +30,7 @@ namespace Circuits.IC.Board
     }
 
     // Gives the board definition its configuration factory, replacing the null one ShapezShifter's island
-    // builder attaches. ShapezShifter registers the definition again for every map the game builds, so this
+    // builder attaches, and its look (BoardModel). ShapezShifter registers the definition again for every map the game builds, so this
     // replaces rather than adds.
     public class BoardIslandBuilder : IIslandBuilder
     {
@@ -45,6 +45,7 @@ namespace Circuits.IC.Board
         {
             IslandDefinition definition = Inner.BuildAndRegister(group, gameIslands);
             definition.CustomData.AttachOrReplace<IFactory<IIslandConfiguration>>(new Factory());
+            definition.CustomData.AttachOrReplace(BoardModel.DrawData());
             return definition;
         }
 
