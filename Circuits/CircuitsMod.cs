@@ -37,6 +37,7 @@ namespace Circuits
         private readonly TwoWayCompatibilityHooks TwoWayHooks;
         private readonly ICConsoleCommands Commands;
         private readonly BoardPlacementRules BoardRules;
+        private readonly NotchPinPlacement NotchPins;
 
         public CircuitsMod(ILogger logger)
         {
@@ -71,6 +72,10 @@ namespace Circuits
                 () => new BoardPlacementRules(),
                 "IC Boards accept any building and pins can go on any platform",
                 logger);
+            NotchPins = Optional(
+                () => new NotchPinPlacement(),
+                "wires dragged into a board's notch get no pin",
+                logger);
             this.AttachSaveData<CircuitLibrary>();
             ICSession.Library = this.GetSaveData<CircuitLibrary>;
             ICSession.Logger = logger;
@@ -90,6 +95,7 @@ namespace Circuits
             TwoWayHooks?.Dispose();
             Commands?.Dispose();
             BoardRules?.Dispose();
+            NotchPins?.Dispose();
         }
 
         // For hooks into private game code, which a game update can break: the mod carries on without the

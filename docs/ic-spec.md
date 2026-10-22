@@ -514,6 +514,12 @@ Each one ends with something playable.
      in the package state (v4) like latch values. A nested chip keeps its own cuts. Which of two equally
      valid outcomes an SR latch settles on when both inputs drop at once can depend on where the cut is, so
      it may differ from the board in that one case.
+   - **Wires dragged into a notch place a pin (built).** As the game's wire placer turns a wire's end in a
+     machine platform's notch into a wire transmitter (`PathAtNotchesUpgradeToPortsProcessor`), a hook on it
+     swaps that for an IC pin on a board (`IC/Board/NotchPinPlacement`): dragged out to the notch, an Output
+     Pin; in from it, an Input Pin. The pin's wire end goes where the wire meets the notch, facing into the
+     board, running along the notch whichever way fits. A wire meeting one of the notch's two middle tiles
+     leaves no room for a 4x1 pin, so it gets none.
 6. **Release.** Package models, translations, Workshop page using the ShapezShifter logo, compatibility
    notes.
 
