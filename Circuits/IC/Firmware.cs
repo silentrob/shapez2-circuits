@@ -23,14 +23,42 @@ namespace Circuits.IC
     {
         public static readonly BuildingDefinitionGroupId ChipGroup = new("CircuitsICPackage1x1Group");
 
+        // Each chip size's group, and the shape of firmware it runs.
+        private static readonly (BuildingDefinitionGroupId Group, PackageShape Shape)[] Chips =
+        {
+            (ChipGroup, PackageShape.Single),
+            (new BuildingDefinitionGroupId("CircuitsICPackage2x1Group"), PackageShape.Wide),
+            (new BuildingDefinitionGroupId("CircuitsICPackage2x2Group"), PackageShape.Square)
+        };
+
+        // The group of chips that run firmware of this shape.
+        public static BuildingDefinitionGroupId ChipGroupOf(PackageShape shape)
+        {
+            return Array.Find(Chips, chip => chip.Shape.Equals(shape)).Group;
+        }
+
         public static bool IsChip(BuildingModel building)
         {
-            return building.Definition.CustomData.TryGet(out IBuildingDefinitionGroup group) && group.Id.Equals(ChipGroup);
+            return ChipShape(building) != null;
+        }
+
+        // The shape of firmware a chip runs, or null when the building is not a chip.
+        public static PackageShape ChipShape(BuildingModel building)
+        {
+            return building.Definition.CustomData.TryGet(out IBuildingDefinitionGroup group)
+                ? Array.Find(Chips, chip => chip.Group.Equals(group.Id)).Shape
+                : null;
+        }
+
+        // Whether firmware fits a chip: firmware runs on chips of the shape of the board it was built on.
+        public static bool Fits(BuildingModel chip, Netlist netlist)
+        {
+            return netlist.Shape.Equals(ChipShape(chip));
         }
 
         public static bool IsBoard(IslandModel island)
         {
-            return island.DefinitionId == BoardIsland.Id;
+            return BoardIsland.IsBoard(island.DefinitionId);
         }
 
         public static BoardConfiguration BoardSettings(IslandModel board)
@@ -49,7 +77,9 @@ namespace Circuits.IC
         {
             var problems = new List<string>();
             IReadOnlyList<Part> parts = BoardReader.Read(board, problems);
-            CompileResult result = problems.Count > 0 ? CompileResult.Failure(problems) : BoardCompiler.Compile(name, parts);
+            CompileResult result = problems.Count > 0
+                ? CompileResult.Failure(problems)
+                : BoardCompiler.Compile(name, BoardIsland.ShapeOf(board.DefinitionId), parts);
             errors = result.Errors;
             if (!result.Succeeded)
             {
@@ -60,8 +90,15 @@ namespace Circuits.IC
         }
 
         // Flashes firmware onto chips by replacing each with a new chip holding it (see ICPackageConfiguration).
+        // Chips of another shape are left alone; false when none fit.
         public static bool Flash(IReadOnlyCollection<BuildingModel> chips, Netlist netlist, int revision)
         {
+            chips = chips.Where(chip => Fits(chip, netlist)).ToList();
+            if (chips.Count == 0)
+            {
+                return false;
+            }
+
             // One netlist shared by every new chip: configurations never change once placed.
             var delete = chips.Select(chip => new DeleteBuildingPayload(chip)).ToList();
             var place = chips
@@ -87,7 +124,8 @@ namespace Circuits.IC
                .Where(chip => ChipSettings(chip) is { } settings
                               && settings.Revision > 0
                               && settings.Revision < entry.Revision
-                              && string.Equals(settings.Netlist.Name, entry.Name, StringComparison.OrdinalIgnoreCase))
+                              && string.Equals(settings.Netlist.Name, entry.Name, StringComparison.OrdinalIgnoreCase)
+                              && settings.Netlist.Shape.Equals(ShapeOf(entry)))
                .ToArray();
         }
 
@@ -103,6 +141,13 @@ namespace Circuits.IC
             if (board.BuildingsCount > 0)
             {
                 problem = "Restore needs an empty board.";
+                return false;
+            }
+
+            PackageShape shape = BoardIsland.ShapeOf(board.DefinitionId);
+            if (!shape.Equals(ShapeOf(entry)))
+            {
+                problem = $"{entry.Name} was built on a {ShapeOf(entry)} board; this board is {shape}.";
                 return false;
             }
 
@@ -135,6 +180,12 @@ namespace Circuits.IC
 
             problem = null;
             return Schedule(new ModifyBuildingsPayload(place));
+        }
+
+        // The board shape a firmware was built on: its netlist's package shape.
+        public static PackageShape ShapeOf(CircuitEntry entry)
+        {
+            return NetlistCodec.TryDecode(entry.Netlist, out Netlist netlist) ? netlist.Shape : PackageShape.Single;
         }
 
         private static BoardLayout CaptureLayout(IslandModel board)

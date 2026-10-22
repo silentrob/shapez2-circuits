@@ -55,7 +55,8 @@ namespace Circuits.IC.Package
 
             ICPackageSimulation package = entity.Simulation;
             Matrix4x4 building = FastMatrix.ByTransform(in entity.Transform);
-            for (int side = 0; side < Netlist.SideCount; side++)
+            PackageShape shape = package.Netlist.Shape;
+            for (int side = 0; side < package.Netlist.Connections; side++)
             {
                 SideRole role = package.Netlist.SideRoles[side];
                 if (role == SideRole.Unused)
@@ -67,10 +68,14 @@ namespace Circuits.IC.Package
                     ? package.SideInputs[side].GetMostRecent(force: true)
                     : package.SideOutputs[side].GetMostRecent();
 
-                // Sides run north, east, south, west: a quarter turn each, clockwise from above.
-                Quaternion toSide = Quaternion.Euler(0, 90f * side, 0);
+                // Edges run north, east, south, west: a quarter turn each, clockwise from above. Each connection's
+                // arrow sits on its own tile (building space has z north, so y south becomes -z).
+                (Side edge, _) = shape.Locate(side);
+                (int x, int y) = shape.Tile(side);
+                Quaternion toSide = Quaternion.Euler(0, 90f * (int)edge, 0);
                 Quaternion pointing = role == SideRole.Output ? toSide : toSide * Quaternion.Euler(0, 180f, 0);
-                Vector3 position = toSide * new Vector3(0, ICPackageModel.BodyTop + 0.003f, ICPackageModel.ArrowDistance);
+                Vector3 position = new Vector3(x, 0, -y)
+                                   + toSide * new Vector3(0, ICPackageModel.BodyTop + 0.003f, ICPackageModel.ArrowDistance);
 
                 LOD6Mesh arrow = value.IsTruthy() ? drawData.SideArrowOn : drawData.SideArrowOff;
                 if (((ILODMesh)arrow).TryGet(options.LOD.BuildingLOD, out IMeshReference mesh))

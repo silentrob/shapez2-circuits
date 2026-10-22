@@ -11,8 +11,9 @@ namespace Circuits.IC.Compilation
     // Reads a board platform into the compiler's parts. Runs on the main thread, between simulation updates,
     // and reads only the map, never the simulation.
     //
-    // A board is an IC Board platform (one chunk). Which side of the package a pin stands for is the board edge it
-    // sits on, measured in the platform's own frame, so a rotated board still compiles the same circuit. A pin
+    // A board is an IC Board platform (1x1, 2x1 or 2x2 chunks). Which package connection a pin stands for is the
+    // board edge it sits on and the chunk along that edge, measured in the platform's own frame, so a rotated
+    // board still compiles the same circuit. A pin
     // is on an edge when the next tile outward is not buildable, which follows the platform's real outline
     // (its inset border and notches) rather than the chunk's 20x20 square.
     public static class BoardReader
@@ -45,7 +46,8 @@ namespace Circuits.IC.Compilation
         public static IReadOnlyList<Part> Read(IslandModel board, List<string> errors)
         {
             var parts = new List<Part>();
-            if (board.DefinitionId != BoardIsland.Id)
+            PackageShape shape = BoardIsland.ShapeOf(board.DefinitionId);
+            if (shape == null)
             {
                 errors.Add("Circuits are compiled on an IC Board: place one from the Platforms toolbar.");
                 return parts;
@@ -83,10 +85,18 @@ namespace Circuits.IC.Compilation
                     case PartKind.InputPin:
                     case PartKind.OutputPin:
                         IslandChunkData chunk = layout.GetChunk_UNSAFE_I(building.Transform_I.Position);
+                        // The tile is counted from the board's first chunk; the chunk's own data counts from it.
+                        tile = new ChunkTileCoordinate(
+                            tile.x - ChunkTiles * chunk.Chunk_L.x,
+                            tile.y - ChunkTiles * chunk.Chunk_L.y,
+                            tile.z);
                         bool notchOnly = group == InputNotchPinGroup.Id || group == OutputNotchPinGroup.Id;
                         if (TryEdge(chunk, tile, notchOnly, out Side side, out string problem))
                         {
-                            parts.Add(new Part(kind, label, ports, side));
+                            // Which chunk along that edge: chunks count from the west (north and south edges)
+                            // or the north (east and west edges), as a package's connections do.
+                            int position = side is Side.North or Side.South ? chunk.Chunk_L.x : chunk.Chunk_L.y;
+                            parts.Add(new Part(kind, label, ports, shape.IndexOf(side, position)));
                         }
                         else
                         {

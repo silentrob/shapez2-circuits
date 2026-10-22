@@ -35,9 +35,9 @@ namespace Circuits.IC.Package
             }
 
             // Live side values: the game shows these rows only in its editor (see the spec, section 3.9).
-            for (int side = 0; side < Netlist.SideCount; side++)
+            for (int side = 0; side < package.Netlist.Connections; side++)
             {
-                string name = $"{package.Netlist.Name}: {(Side)side}";
+                string name = $"{package.Netlist.Name}: {package.Netlist.Shape.Name(side)}";
                 switch (package.Netlist.SideRoles[side])
                 {
                     case SideRole.Input:
@@ -97,12 +97,14 @@ namespace Circuits.IC.Package
                 }
             }
 
-            if (library.Count == 0)
+
+            // Only firmware built on a board of this chip's shape runs on it.
+            CircuitEntry[] entries = library.Where(entry => Firmware.ShapeOf(entry).Equals(Firmware.ChipShape(building))).ToArray();
+            if (entries.Length == 0)
             {
                 yield break;
             }
 
-            CircuitEntry[] entries = library.ToArray();
             int chosen = current != null ? Math.Max(0, Array.IndexOf(entries, current)) : 0;
             yield return new HUDSidePanelModuleDropdownSelector.Data(
                 entries.Select(entry => (IText)new RawText($"{entry.Name} (revision {entry.Revision})")),

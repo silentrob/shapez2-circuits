@@ -52,7 +52,7 @@ namespace Circuits.IC.Board
                 combinedBlueprintMesh: lods,
                 previewMesh: closest,
                 glassMesh: new LODEmptyMesh(),
-                colliders: BoundingBoxHelper.CreateBasicCollider(mesh),
+                colliders: ClickBox.For(mesh),
                 customDrawData: customDrawData,
                 hasCustomOverviewMesh: false,
                 customOverviewMesh: null,

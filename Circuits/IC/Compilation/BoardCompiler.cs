@@ -37,6 +37,11 @@ namespace Circuits.IC.Compilation
     {
         public static CompileResult Compile(string name, IReadOnlyList<Part> parts)
         {
+            return Compile(name, PackageShape.Single, parts);
+        }
+
+        public static CompileResult Compile(string name, PackageShape shape, IReadOnlyList<Part> parts)
+        {
             var errors = new List<string>();
             var ports = new List<(Part Part, Port Port)>();
             foreach (Part part in parts)
@@ -63,9 +68,9 @@ namespace Circuits.IC.Compilation
             }
 
             var portIndex = 0;
-            var sideRoles = new SideRole[Netlist.SideCount];
-            var sideNets = new[] { -1, -1, -1, -1 };
-            var sidePins = new string[Netlist.SideCount];
+            var sideRoles = new SideRole[shape.Connections];
+            var sideNets = Enumerable.Repeat(-1, shape.Connections).ToArray();
+            var sidePins = new string[shape.Connections];
             var gates = new List<(Gate Gate, Part Part)>();
             foreach (Part part in parts)
             {
@@ -81,7 +86,7 @@ namespace Circuits.IC.Compilation
                 {
                     case PartKind.InputPin:
                     case PartKind.OutputPin:
-                        BindPin(part, nets, sideRoles, sideNets, sidePins, errors);
+                        BindPin(part, shape, nets, sideRoles, sideNets, sidePins, errors);
                         break;
                     case PartKind.Constant:
                         gates.Add((Gate.Constant(OnlyOutput(part, nets), part.Value), part));
@@ -100,7 +105,7 @@ namespace Circuits.IC.Compilation
             Gate[] ordered = Order(gates, errors);
             return errors.Count > 0
                 ? CompileResult.Failure(errors)
-                : CompileResult.Success(new Netlist(name, netOfSet.Count, sideRoles, sideNets, ordered));
+                : CompileResult.Success(new Netlist(name, shape, netOfSet.Count, sideRoles, sideNets, ordered));
         }
 
         private static void JoinWireJunctions(List<(Part Part, Port Port)> ports, DisjointSets sets)
@@ -151,16 +156,23 @@ namespace Circuits.IC.Compilation
 
         private static void BindPin(
             Part pin,
+            PackageShape shape,
             int[] nets,
             SideRole[] sideRoles,
             int[] sideNets,
             string[] sidePins,
             List<string> errors)
         {
-            int side = (int)pin.Side;
+            int side = pin.Connection;
+            if (side < 0 || side >= shape.Connections)
+            {
+                errors.Add($"{pin.Label} is not on one of the board's {shape.Connections} connections.");
+                return;
+            }
+
             if (sidePins[side] != null)
             {
-                errors.Add($"{pin.Label} and {sidePins[side]} are both on the {pin.Side} edge; a side holds one pin.");
+                errors.Add($"{pin.Label} and {sidePins[side]} are both at the {shape.Name(side)} connection; each holds one pin.");
                 return;
             }
 

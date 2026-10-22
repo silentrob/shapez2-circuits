@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Game.Core.Coordinates;
 using Game.Core.Map.Simulation;
 using Game.Core.Simulation;
@@ -12,6 +13,7 @@ namespace Circuits.IC.Package
     {
         private readonly List<ISimulationConnector> Connectors = new();
         private readonly IBuildingConnectorData ConnectorData;
+        private readonly GlobalChunkCoordinate[] Chunks;
 
         public BuildingInstance Building { get; }
         public GlobalTileTransform Transform => Building.Transform;
@@ -19,7 +21,7 @@ namespace Circuits.IC.Package
         public GlobalTileBounds TileBounds { get; }
         public GlobalChunkBounds ChunkBounds => TileBounds.ToChunkBounds();
         public int NumConnectors => Connectors.Count;
-        public int NumOccupiedChunks => 1;
+        public int NumOccupiedChunks => Chunks.Length;
         public int NumOccupiedTiles => ConnectorData.Tiles.Length;
 
         public ICConnectableSimulation(BuildingInstance building, ICPackageSimulation simulation)
@@ -28,10 +30,14 @@ namespace Circuits.IC.Package
             Building = building;
             Simulation = simulation;
             TileBounds = ConnectorData.TileBounds.ToGlobal(Transform);
+            // A larger package can straddle a chunk border.
+            Chunks = ConnectorData.Tiles.Select(tile => tile.ToGlobal(Transform).ToChunkCoordinate()).Distinct().ToArray();
 
+            PackageShape shape = simulation.Netlist.Shape;
             foreach (BuildingSignalTwoWay side in ConnectorData.BuildingConnectorsOfType<BuildingSignalTwoWay>())
             {
-                int index = (int)SideOf(side.TileDirection);
+                Side edge = SideOf(side.TileDirection);
+                int index = shape.IndexOf(edge, edge is Side.North or Side.South ? side.Position_L.x : side.Position_L.y);
                 Connectors.Add(
                     new TwoWaySideConnector(
                         simulation.SideInputs[index],
@@ -53,10 +59,10 @@ namespace Circuits.IC.Package
 
         public GlobalChunkCoordinate GetOccupiedChunk(int index)
         {
-            return Transform.Position.ToChunkCoordinate();
+            return Chunks[index];
         }
 
-        // Sides are local to the building: the netlist's north is the package's north before rotation.
+        // Edges are local to the building: the netlist's north is the package's north before rotation.
         private static Side SideOf(TileDirection direction)
         {
             if (direction == TileDirection.North) return Side.North;

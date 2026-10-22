@@ -22,9 +22,9 @@ namespace Circuits.IC.Package
         public const float BodyTop = 0.21f;
         private const float BodyHalf = 0.32f;
 
-        public static BuildingDrawData DrawData(IBuildingCustomDrawData customDrawData)
+        public static BuildingDrawData DrawData(PackageShape shape, IBuildingCustomDrawData customDrawData)
         {
-            Mesh mesh = Chip();
+            Mesh mesh = Chip(shape);
             LOD6Mesh lods = MeshLod.Create().AddLod0Mesh(mesh).BuildLod6Mesh();
             ((ILODMesh)lods).TryGet(0, out IMeshReference closest);
             return new BuildingDrawData(
@@ -34,7 +34,7 @@ namespace Circuits.IC.Package
                 combinedBlueprintMesh: lods,
                 previewMesh: closest,
                 glassMesh: new LODEmptyMesh(),
-                colliders: BoundingBoxHelper.CreateBasicCollider(mesh),
+                colliders: ClickBox.For(mesh),
                 customDrawData: customDrawData,
                 hasCustomOverviewMesh: false,
                 customOverviewMesh: null,
@@ -58,26 +58,32 @@ namespace Circuits.IC.Package
         // How far from the centre each side's arrow sits.
         public const float ArrowDistance = 0.18f;
 
-        private static Mesh Chip()
+        // Building space has z north and the shape's tiles run east (x) and south (-z) from the origin tile.
+        private static Mesh Chip(PackageShape shape)
         {
+            float east = shape.Width - 1, south = shape.Height - 1;
             var mesh = new PaletteMesh()
-               .Box(new(-BodyHalf, 0.05f, -BodyHalf), new(BodyHalf, BodyTop, BodyHalf), Body)
+               .Box(new(-BodyHalf, 0.05f, -south - BodyHalf), new(east + BodyHalf, BodyTop, BodyHalf), Body)
                .Box(new(-0.07f, BodyTop, 0.25f), new(0.07f, BodyTop + 0.015f, 0.30f), PinOne);
 
-            foreach (Func<float, float, Vector3> side in Sides)
+            for (int connection = 0; connection < shape.Connections; connection++)
             {
-                // A socket in the middle of each side, out to the tile edge, for a wire to plug into, as vanilla
-                // buildings have where they connect.
-                AddBox(mesh, side(-0.055f, BodyHalf - 0.02f), side(0.055f, 0.5f), 0.025f, 0.135f, Socket);
+                Func<float, float, Vector3> side = Sides[(int)shape.Locate(connection).Edge];
+                (int x, int y) = shape.Tile(connection);
+                var tile = new Vector3(x, 0, -y);
+
+                // A socket in the middle of each connection's edge, out to the tile edge, for a wire to plug
+                // into, as vanilla buildings have where they connect.
+                AddBox(mesh, tile + side(-0.055f, BodyHalf - 0.02f), tile + side(0.055f, 0.5f), 0.025f, 0.135f, Socket);
 
                 // A leg either side of it, from under the body's edge.
                 foreach (float along in new[] { -0.17f, 0.17f })
                 {
-                    AddBox(mesh, side(along - 0.035f, BodyHalf - 0.02f), side(along + 0.035f, 0.44f), 0f, 0.13f, Legs);
+                    AddBox(mesh, tile + side(along - 0.035f, BodyHalf - 0.02f), tile + side(along + 0.035f, 0.44f), 0f, 0.13f, Legs);
                 }
             }
 
-            return mesh.Build("CircuitsICPackage");
+            return mesh.Build($"CircuitsICPackage{shape}");
         }
 
         // A box between two ground-level corners (in either order), from bottom to top.

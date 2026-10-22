@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using System.Reflection;
+using Circuits.Kit;
 using Circuits.IC.Library;
 using Circuits.IC.Package;
 using Core.Dependency;
 using MonoMod.RuntimeDetour;
+using ShapezShifter.Kit;
 using ILogger = Core.Logging.ILogger;
 
 namespace Circuits.IC.Commands
@@ -19,6 +22,7 @@ namespace Circuits.IC.Commands
     //   circuits.list              the firmware library, then the built-in test circuits
     //   circuits.info              the firmware on each selected chip
     //   circuits.dumppalette       development aid: save the building palette (see TextureDump)
+    //   circuits.dumpicons         development aid: save the toolbar's icons, to draw the mod's own from
     public sealed class ICConsoleCommands : IDisposable
     {
         private static readonly MethodInfo InitConsoleCommands = typeof(GameSessionOrchestrator).GetMethod(
@@ -64,6 +68,7 @@ namespace Circuits.IC.Commands
                 console.Register("circuits.list", Logged(List));
                 console.Register("circuits.info", Logged(Info));
                 console.Register("circuits.dumppalette", Logged(DumpPalette));
+                console.Register("circuits.dumpicons", Logged(DumpIcons));
             }
             catch (Exception e)
             {
@@ -128,10 +133,21 @@ namespace Circuits.IC.Commands
                 return;
             }
 
+            BuildingModel[] fitting = chips.Where(chip => Firmware.Fits(chip, netlist)).ToArray();
+            if (fitting.Length == 0)
+            {
+                context.Output($"{netlist.Name} is {netlist.Shape} firmware: it runs only on {netlist.Shape} chips.");
+                return;
+            }
+
             context.Output(
-                Firmware.Flash(chips, netlist, revision)
-                    ? $"Flashing {netlist.Name} onto {chips.Length} chip(s)."
+                Firmware.Flash(fitting, netlist, revision)
+                    ? $"Flashing {netlist.Name} onto {fitting.Length} chip(s)."
                     : "The game would not replace the selected chips.");
+            if (fitting.Length < chips.Length)
+            {
+                context.Output($"{chips.Length - fitting.Length} selected chip(s) are not {netlist.Shape}, so were left as they were.");
+            }
         }
 
         private static void List(DebugConsole.CommandContext context)
@@ -171,6 +187,53 @@ namespace Circuits.IC.Commands
         {
             ICPackageRenderer.DumpPaletteRequested = true;
             context.Output("The building palette will be saved to the mod's palette-dump folder the next time an IC chip is on screen.");
+        }
+
+        // Development aid for the mod's icons: every toolbar icon (categories, groups and platforms) as a PNG, named
+        // by its place in the toolbar and what it is, in the mod's icon-dump folder.
+        private static void DumpIcons(DebugConsole.CommandContext context)
+        {
+            ToolbarData toolbar = AfterToolbarEntry.LastToolbar;
+            if (toolbar == null)
+            {
+                context.Output("The toolbar has not been built yet.");
+                return;
+            }
+
+            string folder = Path.Combine(ModDirectoryLocator.CreateLocator<CircuitsMod>().SubPath("icon-dump"));
+            int count = 0;
+            DumpIcons(toolbar.RootToolbarElement, "", folder, ref count);
+            context.Output($"Saved {count} toolbar icons to {folder}.");
+        }
+
+        private static void DumpIcons(IParentToolbarElementData parent, string path, string folder, ref int count)
+        {
+            int index = 0;
+            foreach (IToolbarElementData child in parent.Children)
+            {
+                string place = $"{path}{index++:00}";
+                if (child is IPresentableToolbarElementData presentable && presentable.Icon != null)
+                {
+                    string what = child switch
+                    {
+                        IslandBasedPlacementToolbarElementData island => island.IslandGroup.Id.ToString(),
+                        BuildingBasedPlacementToolbarElementData building => building.BuildingDefinition.Id.ToString(),
+                        _ => presentable.Icon.name
+                    };
+                    TextureDump.Dump(presentable.Icon, Path.Combine(folder, $"{place} {Safe(what)}.png"));
+                    count++;
+                }
+
+                if (child is IParentToolbarElementData children)
+                {
+                    DumpIcons(children, place + "-", folder, ref count);
+                }
+            }
+        }
+
+        private static string Safe(string name)
+        {
+            return string.Concat(name.Split(Path.GetInvalidFileNameChars()));
         }
 
         // The library first, so built firmware can take a test circuit's name. Test circuits have revision 0.

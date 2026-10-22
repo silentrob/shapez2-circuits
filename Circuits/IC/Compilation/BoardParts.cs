@@ -82,18 +82,23 @@ namespace Circuits.IC.Compilation
         // Inputs in the order the game binds them (for a Transistor: input, then gate).
         public readonly Port[] Ports;
 
-        // Pins only: the package side the pin stands for.
-        public readonly Side Side;
+        // Pins only: the package connection the pin stands for (see PackageShape).
+        public readonly int Connection;
 
         // Constants only.
         public readonly int Value;
 
         public Part(PartKind kind, string label, Port[] ports, Side side = Side.North, int value = 0)
+            : this(kind, label, ports, (int)side, value)
+        {
+        }
+
+        public Part(PartKind kind, string label, Port[] ports, int connection, int value = 0)
         {
             Kind = kind;
             Label = label;
             Ports = ports;
-            Side = side;
+            Connection = connection;
             Value = value;
         }
     }

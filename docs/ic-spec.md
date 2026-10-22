@@ -417,6 +417,15 @@ Each one ends with something playable.
       stay vanilla, since every platform shares the floor material.
 5. **Depth.** 2×1 and 2×2 boards and packages, nested ICs, virtual shape processors and channels inside
    ICs, the jump-to-board hotkey.
+   - **Larger sizes (built).** `IC/PackageShape` numbers a shape's connections clockwise from the north-west
+     corner (the north edge west to east, then east, south and west), so a 1×1's are North, East, South,
+     West as before; names count from the west or north ("North 2"). Netlists carry their shape (codec v3;
+     earlier versions are 1×1). Boards 2×1 and 2×2 (`BoardIsland`) have a notch on every outer chunk edge,
+     and a pin's connection is its notch's edge and chunk along it. Packages 2×1 and 2×2 have a two-way
+     connector per connection, run only firmware of their shape (flashing, Update and Restore all match
+     on shape), and save room for eight connections (package state v2). Toolbar entries that follow
+     another mod entry fall back on a vanilla one, as the game adds mod entries in no set order; an island
+     entry left among buildings switched the view mid-placement and blocked zooming in.
 6. **Release.** Package models, translations, Workshop page using the ShapezShifter logo, compatibility
    notes.
 

@@ -4,8 +4,12 @@
     "building-variant.CircuitsLatch.description": "<gl>Holds</gl> the last signal on its Data input until <gl>Reset</gl> is on. Captures any truthy value: 1, a shape or a color.",
     "toolbar.circuits-integrated-circuits.title": "Integrated Circuits",
     "toolbar.circuits-integrated-circuits.description": "Design circuits on an <gl>IC Board</gl>, build them into <gl>firmware</gl>, and run them on IC chips.",
-    "building-variant.CircuitsICPackage1x1.title": "IC Package",
+    "building-variant.CircuitsICPackage1x1.title": "IC Package 1x1",
     "building-variant.CircuitsICPackage1x1.description": "Runs <gl>firmware</gl> built from an <gl>IC Board</gl>. Each side is an input or an output, depending on the firmware. Flash firmware onto it from its panel.",
+    "building-variant.CircuitsICPackage2x1.title": "IC Package 2x1",
+    "building-variant.CircuitsICPackage2x1.description": "Runs <gl>firmware</gl> built from a 2x1 <gl>IC Board</gl>. Each of its six connections is an input or an output, depending on the firmware. Flash firmware onto it from its panel.",
+    "building-variant.CircuitsICPackage2x2.title": "IC Package 2x2",
+    "building-variant.CircuitsICPackage2x2.description": "Runs <gl>firmware</gl> built from a 2x2 <gl>IC Board</gl>. Each of its eight connections is an input or an output, depending on the firmware. Flash firmware onto it from its panel.",
     "building-variant.CircuitsICInputNotchPin.title": "IC Input Pin",
     "building-variant.CircuitsICInputNotchPin.description": "Marks an <gl>input</gl> of an <gl>IC Board</gl>. Fills one of the board's notches: that side of the chip becomes an input. The wire connects at its end; <gl>F</gl> flips which end. On the board it sends its <gl>test value</gl>, set like a Constant Signal.",
     "building-variant.CircuitsICOutputNotchPin.title": "IC Output Pin",
@@ -14,7 +18,11 @@
     "building-variant.CircuitsICInputPin.description": "Marks an <gl>input</gl> of an <gl>IC Board</gl>. Place it in a notch or on the edge: that side of the package becomes an input. On the board it sends its <gl>test value</gl>, set like a Constant Signal.",
     "building-variant.CircuitsICOutputPin.title": "IC Output Pin (1x1, old)",
     "building-variant.CircuitsICOutputPin.description": "Marks an <gl>output</gl> of an <gl>IC Board</gl>. Place it in a notch or on the edge: that side of the package becomes an output. On the board it shows what reaches it.",
-    "island-layout.CircuitsICBoard.title": "IC Board",
-    "island-layout.CircuitsICBoard.description": "A platform for designing <gl>integrated circuits</gl>. Holds only signal buildings. Mark its inputs and outputs with <gl>IC Pins</gl>, then select the board and <gl>Build</gl> it into firmware from its panel."
+    "island-layout.CircuitsICBoard.title": "IC Board 1x1",
+    "island-layout.CircuitsICBoard.description": "A platform for designing <gl>integrated circuits</gl>. Holds only signal buildings. Mark its inputs and outputs with <gl>IC Pins</gl>, then select the board and <gl>Build</gl> it into firmware from its panel.",
+    "island-layout.CircuitsICBoard2x1.title": "IC Board 2x1",
+    "island-layout.CircuitsICBoard2x1.description": "A two-chunk platform for designing <gl>integrated circuits</gl> for 2x1 chips, with six notches for <gl>IC Pins</gl>. Holds only signal buildings. Select the board and <gl>Build</gl> it into firmware from its panel.",
+    "island-layout.CircuitsICBoard2x2.title": "IC Board 2x2",
+    "island-layout.CircuitsICBoard2x2.description": "A four-chunk platform for designing <gl>integrated circuits</gl> for 2x2 chips, with eight notches for <gl>IC Pins</gl>. Holds only signal buildings. Select the board and <gl>Build</gl> it into firmware from its panel."
   }
 }

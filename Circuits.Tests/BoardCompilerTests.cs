@@ -167,7 +167,7 @@ namespace Circuits.Tests
             CompileResult result = BoardCompiler.Compile("Board", parts);
 
             Assert.False(result.Succeeded);
-            Assert.Contains(result.Errors, error => error.Contains("both on the West edge"));
+            Assert.Contains(result.Errors, error => error.Contains("both at the West connection"));
         }
 
         [Fact]

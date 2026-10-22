@@ -33,7 +33,19 @@ namespace Circuits.Kit
             logger.Info?.Log($"[Circuits] Saved {report.Count - 1} texture properties of {material.name} to {folder}");
         }
 
+        // A sprite's own pixels, cut from the atlas it is packed into.
+        public static void Dump(Sprite sprite, string file)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(file));
+            File.WriteAllBytes(file, ReadablePng(sprite.texture, sprite.textureRect));
+        }
+
         private static byte[] ReadablePng(Texture texture)
+        {
+            return ReadablePng(texture, new Rect(0, 0, texture.width, texture.height));
+        }
+
+        private static byte[] ReadablePng(Texture texture, Rect area)
         {
             RenderTexture target = RenderTexture.GetTemporary(texture.width, texture.height, 0, RenderTextureFormat.ARGB32);
             RenderTexture previous = RenderTexture.active;
@@ -41,8 +53,8 @@ namespace Circuits.Kit
             {
                 Graphics.Blit(texture, target);
                 RenderTexture.active = target;
-                var copy = new Texture2D(texture.width, texture.height, TextureFormat.RGBA32, false);
-                copy.ReadPixels(new Rect(0, 0, texture.width, texture.height), 0, 0);
+                var copy = new Texture2D((int)area.width, (int)area.height, TextureFormat.RGBA32, false);
+                copy.ReadPixels(area, 0, 0);
                 copy.Apply();
                 byte[] png = copy.EncodeToPNG();
                 Object.Destroy(copy);

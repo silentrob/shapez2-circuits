@@ -19,18 +19,30 @@ namespace Circuits.IC.Package
             return otherIO is BuildingSignalIO;
         }
 
-        // Connector data for a single-tile package with one two-way connector per side.
-        public static IBuildingConnectorData SingleTile()
+        // Connector data for a package of the given shape: one two-way connector per connection, in connection
+        // order, on the tile and edge each connection sits on (see PackageShape).
+        public static IBuildingConnectorData For(PackageShape shape)
         {
-            Side[] sides = { Side.North, Side.East, Side.South, Side.West };
-            IBuildingIO[] connectors = sides
-               .Select(side => (IBuildingIO)new BuildingSignalTwoWay { Position_L = TileVector.Zero, TileDirection = DirectionOf(side) })
+            IBuildingIO[] connectors = Enumerable.Range(0, shape.Connections)
+               .Select(connection =>
+                {
+                    (int x, int y) = shape.Tile(connection);
+                    return (IBuildingIO)new BuildingSignalTwoWay
+                    {
+                        Position_L = new TileVector(x, y, 0),
+                        TileDirection = DirectionOf(shape.Locate(connection).Edge)
+                    };
+                })
                .ToArray();
 
-            var bounds = new LocalTileBounds(min: TileVector.Zero, max: TileVector.Zero);
+            TileVector[] tiles =
+                (from y in Enumerable.Range(0, shape.Height)
+                 from x in Enumerable.Range(0, shape.Width)
+                 select new TileVector(x, y, 0)).ToArray();
+            var bounds = new LocalTileBounds(min: TileVector.Zero, max: new TileVector(shape.Width - 1, shape.Height - 1, 0));
             return new BuildingConnectorData(
                 allInputs: connectors,
-                tiles: new[] { TileVector.Zero },
+                tiles: tiles,
                 tileBounds: bounds,
                 tileBoundsCenter: LocalVector.Lerp((LocalVector)bounds.Min, (LocalVector)bounds.Max, 0.5f),
                 tileDimensions: bounds.Dimensions);

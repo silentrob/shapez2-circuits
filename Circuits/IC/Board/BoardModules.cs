@@ -27,7 +27,9 @@ namespace Circuits.IC.Board
             string name = settings.Name;
             CircuitEntry built = name.Length > 0 ? ICSession.Library().Find(name) : null;
             CircuitEntry[] restorable = board.BuildingsCount == 0
-                ? ICSession.Library().Circuits.Where(entry => entry.Layout != null).ToArray()
+                ? ICSession.Library().Circuits
+                   .Where(entry => entry.Layout != null && Firmware.ShapeOf(entry).Equals(BoardIsland.ShapeOf(board.DefinitionId)))
+                   .ToArray()
                 : Array.Empty<CircuitEntry>();
 
             string description = built != null

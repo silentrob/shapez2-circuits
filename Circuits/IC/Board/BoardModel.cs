@@ -9,12 +9,14 @@ namespace Circuits.IC.Board
     // The board's look: a circuit board, so designing on it reads as finer work than a machine platform. The
     // game draws a platform's floor with one material for every platform, so the board keeps the vanilla floor
     // (and its grid) and replaces the heavy machine frame around it: BoardIsland turns the frame off, and this
-    // draws a substrate under the floor's edge, an accent line around the play area, traces and pads on the
-    // border and a mounting hole in each corner. Drawn by the game's island mesh drawer, with the building
-    // material, so it uses the same palette as the chip and pins.
+    // draws a substrate under the floor's edge, an accent line around the play area broken at each notch, traces
+    // and pads on the border beside each notch and a mounting hole in each corner. Drawn by the game's island
+    // mesh drawer, with the building material, so it uses the same palette as the chip and pins.
     //
-    // Island space: centred on the chunk, +x east, +y up, +z north, one tile = one unit, the floor at y = 0.
-    // The play area spans -7..7 on both axes; each notch is 4 tiles wide (-2..2) and 1 deep, out to 8.
+    // Board space: tiles from the centre of the north-west chunk, x east and y south as the game counts them,
+    // the floor at height 0. Each chunk is 20 tiles; the play area reaches 7 tiles past the outer chunks'
+    // centres, and each notch is 4 tiles wide (centred on its chunk) and 1 deep. The island's mesh space is
+    // Unity's, with z north, so y becomes -z.
     public static class BoardModel
     {
         // Palette cells (MaterialLUT column, row): see ICPackageModel.
@@ -24,77 +26,109 @@ namespace Circuits.IC.Board
         private static readonly Vector2 Pad = PaletteMesh.Cell(3, 3); // Mb: bright silver
         private static readonly Vector2 Hole = PaletteMesh.Cell(6, 2); // Pl: near-black
 
-        private const float PlayHalf = 7f;
+        private const float Chunk = 20f;
+        private const float PlayReach = 7f;
         private const float NotchHalf = 2f;
-        private const float BoardHalf = 8.7f;
+        private const float BoardReach = 8.7f;
         private const float SubstrateTop = -0.06f;
 
-        public static IslandMeshDrawer.Data DrawData()
+        public static IslandMeshDrawer.Data DrawData(PackageShape shape)
         {
-            LOD6Mesh lods = MeshLod.Create().AddLod0Mesh(Mesh()).BuildLod6Mesh();
+            LOD6Mesh lods = MeshLod.Create().AddLod0Mesh(Mesh(shape)).BuildLod6Mesh();
             return new IslandMeshDrawer.Data(new ILODMeshMaterial[] { new RuntimeLODMeshMaterial(lods, new BuildingMaterial()) });
         }
 
-        private static Mesh Mesh()
+        private static Mesh Mesh(PackageShape shape)
         {
             var mesh = new PaletteMesh();
-            mesh.Chamfered(new(-BoardHalf, -0.7f, -BoardHalf), new(BoardHalf, SubstrateTop, BoardHalf), 0.2f, Substrate);
+            float east = (shape.Width - 1) * Chunk, south = (shape.Height - 1) * Chunk;
 
-            foreach (Side side in Sides)
+            mesh.Chamfered(
+                ToMesh(-BoardReach, south + BoardReach, -0.7f),
+                ToMesh(east + BoardReach, -BoardReach, SubstrateTop),
+                0.2f,
+                Substrate);
+
+            foreach (Edge edge in Edges(shape))
             {
-                // The accent line along the play area's edge, broken by the notch.
-                EdgeSegment(mesh, side, -PlayHalf - 0.12f, -NotchHalf);
-                EdgeSegment(mesh, side, NotchHalf, PlayHalf + 0.12f);
-
-                // Two traces either side of the notch, each ending in a pad.
-                foreach (float sign in new[] { -1f, 1f })
+                // The accent line along the play area's edge, broken by each chunk's notch.
+                float from = -PlayReach - 0.12f;
+                for (int chunk = 0; chunk < edge.Chunks; chunk++)
                 {
-                    foreach (float outward in new[] { 7.55f, 8.1f })
+                    float notch = chunk * Chunk;
+                    Flat(mesh, edge, from, notch - NotchHalf, PlayReach, PlayReach + 0.12f, SubstrateTop, 0.02f, EdgeLine);
+                    from = notch + NotchHalf;
+                }
+
+                Flat(mesh, edge, from, (edge.Chunks - 1) * Chunk + PlayReach + 0.12f, PlayReach, PlayReach + 0.12f, SubstrateTop, 0.02f, EdgeLine);
+
+                // Two traces either side of each notch, each ending in a pad.
+                for (int chunk = 0; chunk < edge.Chunks; chunk++)
+                {
+                    foreach (float sign in new[] { -1f, 1f })
                     {
-                        float from = sign * (NotchHalf + 0.5f), to = sign * (outward > 8f ? 6.2f : 6.8f);
-                        Flat(mesh, side, from, to, outward - 0.05f, outward + 0.05f, SubstrateTop, SubstrateTop + 0.02f, Trace);
-                        Flat(mesh, side, to - 0.14f, to + 0.14f, outward - 0.14f, outward + 0.14f, SubstrateTop, SubstrateTop + 0.03f, Pad);
+                        foreach (float outward in new[] { 7.55f, 8.1f })
+                        {
+                            float start = chunk * Chunk + sign * (NotchHalf + 0.5f);
+                            float end = chunk * Chunk + sign * (outward > 8f ? 6.2f : 6.8f);
+                            Flat(mesh, edge, start, end, outward - 0.05f, outward + 0.05f, SubstrateTop, SubstrateTop + 0.02f, Trace);
+                            Flat(mesh, edge, end - 0.14f, end + 0.14f, outward - 0.14f, outward + 0.14f, SubstrateTop, SubstrateTop + 0.03f, Pad);
+                        }
                     }
                 }
             }
 
-            // Mounting holes: a silver ring (a chamfered block) with a dark centre.
-            foreach (float x in new[] { -8f, 8f })
+            // Mounting holes in the corners: a silver ring (a chamfered block) with a dark centre.
+            foreach (float x in new[] { -8f, east + 8f })
             {
-                foreach (float z in new[] { -8f, 8f })
+                foreach (float y in new[] { -8f, south + 8f })
                 {
-                    mesh.Chamfered(new(x - 0.32f, SubstrateTop, z - 0.32f), new(x + 0.32f, SubstrateTop + 0.05f, z + 0.32f), 0.08f, Pad);
-                    mesh.Box(new(x - 0.14f, SubstrateTop + 0.05f, z - 0.14f), new(x + 0.14f, SubstrateTop + 0.06f, z + 0.14f), Hole);
+                    mesh.Chamfered(ToMesh(x - 0.32f, y + 0.32f, SubstrateTop), ToMesh(x + 0.32f, y - 0.32f, SubstrateTop + 0.05f), 0.08f, Pad);
+                    mesh.Box(ToMesh(x - 0.14f, y + 0.14f, SubstrateTop + 0.05f), ToMesh(x + 0.14f, y - 0.14f, SubstrateTop + 0.06f), Hole);
                 }
             }
 
-            return mesh.Build("CircuitsICBoard");
+            return mesh.Build($"CircuitsICBoard{shape}");
         }
 
-        private static void EdgeSegment(PaletteMesh mesh, Side side, float from, float to)
+        // One outer edge of the board: where it starts, the way along it, the way out of the board, and how many
+        // chunks it spans.
+        private readonly struct Edge
         {
-            Flat(mesh, side, from, to, PlayHalf, PlayHalf + 0.12f, SubstrateTop, 0.02f, EdgeLine);
+            public readonly Vector2 Start, Along, Outward;
+            public readonly int Chunks;
+
+            public Edge(Vector2 start, Vector2 along, Vector2 outward, int chunks)
+            {
+                Start = start;
+                Along = along;
+                Outward = outward;
+                Chunks = chunks;
+            }
         }
 
-        // A box on one side of the board, given along that side and outward from the centre.
-        private static void Flat(PaletteMesh mesh, Side side, float along0, float along1, float out0, float out1, float bottom, float top, Vector2 cell)
+        private static IEnumerable<Edge> Edges(PackageShape shape)
         {
-            Vector3 a = side(along0, out0), b = side(along1, out1);
-            mesh.Box(
-                new Vector3(Mathf.Min(a.x, b.x), bottom, Mathf.Min(a.z, b.z)),
-                new Vector3(Mathf.Max(a.x, b.x), top, Mathf.Max(a.z, b.z)),
-                cell);
+            float east = (shape.Width - 1) * Chunk, south = (shape.Height - 1) * Chunk;
+            yield return new Edge(new(0, 0), new(1, 0), new(0, -1), shape.Width); // north
+            yield return new Edge(new(east, 0), new(0, 1), new(1, 0), shape.Height); // east
+            yield return new Edge(new(0, south), new(1, 0), new(0, 1), shape.Width); // south
+            yield return new Edge(new(0, 0), new(0, 1), new(-1, 0), shape.Height); // west
         }
 
-        private delegate Vector3 Side(float along, float outward);
-
-        private static readonly Side[] Sides =
+        // A box on one edge of the board, given along the edge (from its first chunk's centre) and outward from
+        // the chunks' centres, between two heights.
+        private static void Flat(PaletteMesh mesh, Edge edge, float along0, float along1, float out0, float out1, float bottom, float top, Vector2 cell)
         {
-            (along, outward) => new Vector3(along, 0, outward), // north
-            (along, outward) => new Vector3(outward, 0, along), // east
-            (along, outward) => new Vector3(along, 0, -outward), // south
-            (along, outward) => new Vector3(-outward, 0, along) // west
-        };
+            Vector2 a = edge.Start + edge.Along * along0 + edge.Outward * out0;
+            Vector2 b = edge.Start + edge.Along * along1 + edge.Outward * out1;
+            mesh.Box(ToMesh(Mathf.Min(a.x, b.x), Mathf.Max(a.y, b.y), bottom), ToMesh(Mathf.Max(a.x, b.x), Mathf.Min(a.y, b.y), top), cell);
+        }
+
+        private static Vector3 ToMesh(float x, float y, float height)
+        {
+            return new Vector3(x, height, -y);
+        }
 
         // The theme's building material, looked up when first drawn: the theme is loaded with the game session,
         // after the board's definition is made.

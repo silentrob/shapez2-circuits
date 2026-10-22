@@ -53,7 +53,7 @@ namespace Circuits.IC.Board
                 return allowed;
             }
 
-            bool onBoard = island == BoardIsland.Id;
+            bool onBoard = BoardIsland.IsBoard(island);
             if (BoardReader.IsPinGroup(group))
             {
                 return onBoard;

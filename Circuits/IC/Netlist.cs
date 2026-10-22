@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace Circuits.IC
 {
-    // A package side, indexed in this order everywhere a netlist or package refers to sides.
+    // A package edge. On a 1x1 package each edge is one connection, numbered in this order (see PackageShape).
     public enum Side { North, East, South, West }
 
     public enum SideRole { Unused, Input, Output }
@@ -40,46 +40,65 @@ namespace Circuits.IC
         }
     }
 
-    // The compiled form of a circuit: nets are numbered 0..NetCount-1, each side is bound to a net or unused,
-    // and gates are listed in evaluation order (every gate after the gates driving its inputs).
+    // The compiled form of a circuit, for a package of one shape: nets are numbered 0..NetCount-1, each of the
+    // shape's connections (the "sides" below) is bound to a net or unused, and gates are listed in evaluation
+    // order (every gate after the gates driving its inputs).
     public sealed class Netlist
     {
+        // A 1x1 package's connections.
         public const int SideCount = 4;
 
-        // What a package runs before a circuit is loaded: every side unused, so it drives nothing.
-        public static readonly Netlist Empty = new(
-            "Empty",
-            netCount: 0,
-            sideRoles: new[] { SideRole.Unused, SideRole.Unused, SideRole.Unused, SideRole.Unused },
-            sideNets: new[] { -1, -1, -1, -1 },
-            gates: Array.Empty<Gate>());
+        public const string EmptyName = "Empty";
+
+        // What a 1x1 package runs before a circuit is loaded: every side unused, so it drives nothing.
+        public static readonly Netlist Empty = EmptyOf(PackageShape.Single);
 
         public readonly string Name;
+        public readonly PackageShape Shape;
         public readonly int NetCount;
         public readonly SideRole[] SideRoles;
         public readonly int[] SideNets;
         public readonly Gate[] Gates;
 
+        public int Connections => Shape.Connections;
+
         public Netlist(string name, int netCount, SideRole[] sideRoles, int[] sideNets, Gate[] gates)
+            : this(name, PackageShape.Single, netCount, sideRoles, sideNets, gates)
         {
-            if (sideRoles.Length != SideCount || sideNets.Length != SideCount)
+        }
+
+        public Netlist(string name, PackageShape shape, int netCount, SideRole[] sideRoles, int[] sideNets, Gate[] gates)
+        {
+            if (sideRoles.Length != shape.Connections || sideNets.Length != shape.Connections)
             {
-                throw new ArgumentException($"A netlist binds exactly {SideCount} sides");
+                throw new ArgumentException($"A {shape} netlist binds exactly {shape.Connections} connections");
             }
 
             Name = name;
+            Shape = shape;
             NetCount = netCount;
             SideRoles = sideRoles;
             SideNets = sideNets;
             Gates = gates;
         }
 
-        // "West in, East out": what each used side does.
+        public static Netlist EmptyOf(PackageShape shape)
+        {
+            return new Netlist(
+                EmptyName,
+                shape,
+                netCount: 0,
+                sideRoles: new SideRole[shape.Connections],
+                sideNets: Enumerable.Repeat(-1, shape.Connections).ToArray(),
+                gates: Array.Empty<Gate>());
+        }
+
+        // "West in, East out" ("West 1 in, East 2 out" on larger packages): what each used connection does.
         public string DescribeSides()
         {
-            string[] sides = Enumerable.Range(0, SideCount)
+            string[] sides = Enumerable.Range(0, Connections)
                .Where(side => SideRoles[side] != SideRole.Unused)
-               .Select(side => $"{(Side)side} {(SideRoles[side] == SideRole.Input ? "in" : "out")}")
+               .Select(side => $"{Shape.Name(side)} {(SideRoles[side] == SideRole.Input ? "in" : "out")}")
                .ToArray();
             return sides.Length == 0 ? "no connections" : string.Join(", ", sides);
         }

@@ -8,9 +8,10 @@ namespace Circuits.IC
     // savegames and blueprints). Versioned: decoding must keep reading every version ever written.
     //   1: gates And, Or, Xor, Not.
     //   2: adds Transistor and Constant; a Constant gate is followed by its value.
+    //   3: adds the package shape (width and height bytes) after the name; earlier versions are 1x1.
     public static class NetlistCodec
     {
-        private const int Version = 2;
+        private const int Version = 3;
 
         // Far beyond any real circuit; only guards against allocating from corrupt counts.
         private const int MaxCount = 1_000_000;
@@ -22,8 +23,10 @@ namespace Circuits.IC
             {
                 writer.Write(Version);
                 writer.Write(netlist.Name);
+                writer.Write((byte)netlist.Shape.Width);
+                writer.Write((byte)netlist.Shape.Height);
                 writer.Write(netlist.NetCount);
-                for (int side = 0; side < Netlist.SideCount; side++)
+                for (int side = 0; side < netlist.Connections; side++)
                 {
                     writer.Write((byte)netlist.SideRoles[side]);
                     writer.Write(netlist.SideNets[side]);
@@ -69,15 +72,21 @@ namespace Circuits.IC
                 }
 
                 string name = reader.ReadString();
+                PackageShape shape = PackageShape.Single;
+                if (version >= 3 && !PackageShape.TryGet(reader.ReadByte(), reader.ReadByte(), out shape))
+                {
+                    return false;
+                }
+
                 int netCount = reader.ReadInt32();
                 if (netCount < 0 || netCount > MaxCount)
                 {
                     return false;
                 }
 
-                var roles = new SideRole[Netlist.SideCount];
-                var nets = new int[Netlist.SideCount];
-                for (int side = 0; side < Netlist.SideCount; side++)
+                var roles = new SideRole[shape.Connections];
+                var nets = new int[shape.Connections];
+                for (int side = 0; side < shape.Connections; side++)
                 {
                     roles[side] = (SideRole)reader.ReadByte();
                     nets[side] = reader.ReadInt32();
@@ -122,7 +131,7 @@ namespace Circuits.IC
                         : new Gate(kind, output, inputs);
                 }
 
-                netlist = new Netlist(name, netCount, roles, nets, gates);
+                netlist = new Netlist(name, shape, netCount, roles, nets, gates);
                 return true;
             }
             catch (Exception e) when (e is FormatException or EndOfStreamException or IOException)

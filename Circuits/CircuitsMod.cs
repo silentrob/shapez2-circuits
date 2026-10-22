@@ -49,7 +49,11 @@ namespace Circuits
                 FileTextureLoader.LoadTextureAsSprite(resources.SubPath("IC_Icon.png"), out _));
 
             ICPackageRenderer.Logger = logger;
-            AddICPackage(icToolbar, logger);
+            foreach (PackageShape shape in PackageShape.All)
+            {
+                AddICPackage(shape, icToolbar, logger);
+            }
+
             AddPins(icToolbar, logger);
             BoardIsland.Register(AndGateGroup, logger);
             BoardRules = Optional(
@@ -242,25 +246,27 @@ namespace Circuits
                 lookup => VanillaSidePanel.Of(lookup, vanilla));
         }
 
-        // A 1x1 package with four two-way sides, running the circuit in its configuration (empty when placed).
-        private static void AddICPackage(IToolbarEntryInsertLocation toolbar, ILogger logger)
+        // A package of one shape, with a two-way side per connection, running the firmware in its configuration
+        // (none when placed). The 1x1's ids predate the other shapes.
+        private static void AddICPackage(PackageShape shape, IToolbarEntryInsertLocation toolbar, ILogger logger)
         {
             ModFolderLocator resources = ModDirectoryLocator.CreateLocator<CircuitsMod>().SubLocator("Resources");
-            IBuildingGroupBuilder group = BuildingGroup.Create(IC.Firmware.ChipGroup)
-               .WithTitle("building-variant.CircuitsICPackage1x1.title".T())
-               .WithDescription("building-variant.CircuitsICPackage1x1.description".T())
+            string name = $"CircuitsICPackage{shape}";
+            IBuildingGroupBuilder group = BuildingGroup.Create(IC.Firmware.ChipGroupOf(shape))
+               .WithTitle($"building-variant.{name}.title".T())
+               .WithDescription($"building-variant.{name}.description".T())
                .WithIcon(FileTextureLoader.LoadTextureAsSprite(resources.SubPath("IC_Icon.png"), out _))
                .AsNonTransportableBuilding()
                .WithPreferredPlacement(DefaultPreferredPlacementMode.Single)
                .WithDefaultStructureOverview();
 
-            IBuildingConnectorData connectors = BuildingSignalTwoWay.SingleTile();
+            IBuildingConnectorData connectors = BuildingSignalTwoWay.For(shape);
             var drawData = new ICPackageDrawData();
 
-            IBuildingBuilder package = Building.Create(new BuildingDefinitionId("CircuitsICPackage1x1"))
+            IBuildingBuilder package = Building.Create(new BuildingDefinitionId(name))
                .WithConnectorData(connectors)
                .DynamicallyRendering<ICPackageDrawDataCarrier, ICPackageSimulation, ICPackageDrawData>(drawData)
-               .WithStaticDrawData(ICPackageModel.DrawData(drawData))
+               .WithStaticDrawData(ICPackageModel.DrawData(shape, drawData))
                .WithoutSound()
                .WithoutSimulationConfiguration()
                .WithoutEfficiencyData();
@@ -270,7 +276,7 @@ namespace Circuits
                 group,
                 new UnlockBuildingWithExistingSideUpgradeResearchProgressionExtender(new SideUpgradeUnlocking(AndGateGroup)),
                 toolbar,
-                (definition, _) => new ICPackageSimulationSystem(definition.Id, logger),
+                (definition, _) => new ICPackageSimulationSystem(definition.Id, shape, logger),
                 _ => new ICPackageModules());
         }
 

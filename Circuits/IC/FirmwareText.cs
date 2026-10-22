@@ -53,7 +53,7 @@ namespace Circuits.IC
 
         public static bool IsEmpty(Netlist netlist)
         {
-            return ReferenceEquals(netlist, Netlist.Empty) || netlist.Name == Netlist.Empty.Name;
+            return netlist.Name == Netlist.EmptyName;
         }
     }
 }

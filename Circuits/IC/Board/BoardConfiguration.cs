@@ -35,17 +35,19 @@ namespace Circuits.IC.Board
     public class BoardIslandBuilder : IIslandBuilder
     {
         private readonly IIslandBuilder Inner;
+        private readonly Circuits.IC.PackageShape Shape;
 
-        public BoardIslandBuilder(IIslandBuilder inner)
+        public BoardIslandBuilder(IIslandBuilder inner, Circuits.IC.PackageShape shape)
         {
             Inner = inner;
+            Shape = shape;
         }
 
         public IslandDefinition BuildAndRegister(IslandDefinitionGroup group, GameIslands gameIslands)
         {
             IslandDefinition definition = Inner.BuildAndRegister(group, gameIslands);
             definition.CustomData.AttachOrReplace<IFactory<IIslandConfiguration>>(new Factory());
-            definition.CustomData.AttachOrReplace(BoardModel.DrawData());
+            definition.CustomData.AttachOrReplace(BoardModel.DrawData(Shape));
             return definition;
         }
 

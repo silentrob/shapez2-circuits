@@ -24,7 +24,7 @@ namespace Circuits.IC
         {
             Array.Fill(Nets, NullSignal.Instance);
 
-            for (int side = 0; side < Netlist.SideCount; side++)
+            for (int side = 0; side < Netlist.Connections; side++)
             {
                 if (Netlist.SideRoles[side] == SideRole.Input)
                 {
@@ -37,7 +37,7 @@ namespace Circuits.IC
                 Drive(gate.Output, Compute(gate));
             }
 
-            for (int side = 0; side < Netlist.SideCount; side++)
+            for (int side = 0; side < Netlist.Connections; side++)
             {
                 sideOutputs[side] = Netlist.SideRoles[side] == SideRole.Output
                     ? Nets[Netlist.SideNets[side]]
