@@ -257,7 +257,7 @@ namespace Circuits.IC.Compilation
         // Inputs and outputs in connector order, which is the order the game binds them in.
         private static Gate ToGate(Part part, int[] nets, List<string> errors)
         {
-            GateKind kind = part.Kind switch
+            GateKind kind = part.Kind == PartKind.Integer ? (GateKind)part.Value : part.Kind switch
             {
                 PartKind.And => GateKind.And,
                 PartKind.Or => GateKind.Or,

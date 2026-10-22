@@ -25,6 +25,16 @@
     "island-layout.CircuitsICBoard2x2.title": "IC Board 2x2",
     "island-layout.CircuitsICBoard2x2.description": "A four-chunk platform for designing <gl>integrated circuits</gl> for 2x2 chips, with eight notches for <gl>IC Pins</gl>. Holds only signal buildings. Select the board and <gl>Build</gl> it into firmware from its panel.",
     "toolbar.circuits-ic-boards.title": "IC Boards",
-    "toolbar.circuits-ic-boards.description": "Platforms for designing <gl>integrated circuits</gl>, one per chip size. Build a board into <gl>firmware</gl> and flash it onto IC chips."
+    "toolbar.circuits-ic-boards.description": "Platforms for designing <gl>integrated circuits</gl>, one per chip size. Build a board into <gl>firmware</gl> and flash it onto IC chips.",
+    "toolbar.circuits-integer-gates.title": "Integer Gates",
+    "toolbar.circuits-integer-gates.description": "Gates that work on the whole <gl>number</gl> a wire carries, 32 bits of it: pack many flags into one wire and pick them out again.",
+    "building-variant.CircuitsBitwiseGate.title": "Bitwise Gate",
+    "building-variant.CircuitsBitwiseGate.description": "Combines the <gl>bits</gl> of two numbers: AND, OR or XOR, picked in its panel. AND with a constant <gl>masks</gl> bits out. A from the west, B from the north, the result to the east.",
+    "building-variant.CircuitsNotGate.title": "Bitwise NOT",
+    "building-variant.CircuitsNotGate.description": "Flips every <gl>bit</gl> of a number (0 becomes -1). In from the west, the result to the east.",
+    "building-variant.CircuitsShiftGate.title": "Shift Gate",
+    "building-variant.CircuitsShiftGate.description": "Moves a number's <gl>bits</gl> left or right, picked in its panel, by the amount from the north; right fills with zeros. Value from the west, the result to the east.",
+    "building-variant.CircuitsArithmeticGate.title": "Arithmetic Gate",
+    "building-variant.CircuitsArithmeticGate.description": "<gl>Adds</gl> or <gl>subtracts</gl> two numbers, picked in its panel. A from the west, B from the north, the result to the east."
   }
 }

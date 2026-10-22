@@ -5,6 +5,7 @@ using Game.Content.Features.Signals;
 using Game.Core.Content.Buildings;
 using Circuits.IC.Board;
 using Circuits.IC.Package;
+using Circuits.IntGates;
 using Game.Core.Coordinates;
 
 namespace Circuits.IC.Compilation
@@ -86,6 +87,13 @@ namespace Circuits.IC.Compilation
                 if (Firmware.IsChip(building))
                 {
                     AddPackage(building, label, parts, errors);
+                    continue;
+                }
+
+                if (IntegerGates.FamilyOf(new BuildingDefinitionGroupId(group)) is { } family)
+                {
+                    // The operation the gate's configuration picks.
+                    parts.Add(new Part(PartKind.Integer, label, Ports(building), value: (int)Gate.Integer(family.OpOf(building.Configuration))));
                     continue;
                 }
 

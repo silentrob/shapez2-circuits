@@ -27,7 +27,8 @@ namespace Circuits.IC.Compilation
         VirtualPushPin,
         VirtualAnalyze,
         Package,
-        Latch
+        Latch,
+        Integer
     }
 
     public enum PortKind { In, Out, Junction }
@@ -108,7 +109,8 @@ namespace Circuits.IC.Compilation
         // Pins only: the package connection the pin stands for (see PackageShape).
         public readonly int Connection;
 
-        // Constants only: a number, or any other value serialized by the game (null for a number).
+        // Constants: a number, or any other value serialized by the game (Signal; null for a number). Integer
+        // gates: the GateKind their mode compiles to.
         public readonly int Value;
         public readonly string Signal;
 

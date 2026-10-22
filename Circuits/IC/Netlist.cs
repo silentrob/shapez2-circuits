@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Circuits.IntGates;
 
 namespace Circuits.IC
 {
@@ -12,7 +13,8 @@ namespace Circuits.IC
     // truthy; Constant has no inputs and outputs its Value as an IntegerSignal, or its Signal (any other value,
     // serialized by the game) when it has one. The Virtual kinds are the vanilla virtual shape processors, run
     // with the game's own shape operations (see IGateResolver), inputs and outputs in their connector order.
-    // Latch is the Circuits latch (inputs Data, Reset): it keeps a value between ticks (see LatchRule).
+    // Latch is the Circuits latch (inputs Data, Reset): it keeps a value between ticks (see LatchRule). The
+    // Integer kinds are the Circuits integer gates, in IntegerOp's order (see IntegerOps).
     public enum GateKind
     {
         And,
@@ -31,7 +33,15 @@ namespace Circuits.IC
         VirtualSwapHalves,
         VirtualPushPin,
         VirtualAnalyze,
-        Latch
+        Latch,
+        IntegerAnd,
+        IntegerOr,
+        IntegerXor,
+        IntegerNot,
+        IntegerShiftLeft,
+        IntegerShiftRight,
+        IntegerAdd,
+        IntegerSubtract
     }
 
     public sealed class Gate
@@ -79,7 +89,8 @@ namespace Circuits.IC
             {
                 GateKind.Constant => 0,
                 GateKind.Not or GateKind.VirtualRotateCw or GateKind.VirtualRotateCcw or GateKind.VirtualHalfCut
-                    or GateKind.VirtualUnstack or GateKind.VirtualPushPin or GateKind.VirtualAnalyze => 1,
+                    or GateKind.VirtualUnstack or GateKind.VirtualPushPin or GateKind.VirtualAnalyze
+                    or GateKind.IntegerNot => 1,
                 _ => 2
             };
         }
@@ -92,6 +103,21 @@ namespace Circuits.IC
         public static bool IsVirtual(GateKind kind)
         {
             return kind >= GateKind.VirtualRotateCw && kind <= GateKind.VirtualAnalyze;
+        }
+
+        public static bool IsInteger(GateKind kind)
+        {
+            return kind >= GateKind.IntegerAnd;
+        }
+
+        public static GateKind Integer(IntegerOp op)
+        {
+            return GateKind.IntegerAnd + (int)op;
+        }
+
+        public static IntegerOp IntegerOpOf(GateKind kind)
+        {
+            return (IntegerOp)(kind - GateKind.IntegerAnd);
         }
     }
 

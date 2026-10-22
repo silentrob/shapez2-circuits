@@ -1,5 +1,6 @@
 using System;
 using Game.Content.Features.Signals;
+using Circuits.IntGates;
 using Circuits.Latch;
 using Game.Content.Features.Signals.Conductor;
 
@@ -116,6 +117,12 @@ namespace Circuits.IC
 
         private ISignal Compute(Gate gate)
         {
+            if (Gate.IsInteger(gate.Kind))
+            {
+                IntegerOp op = Gate.IntegerOpOf(gate.Kind);
+                return IntegerOps.Apply(op, Nets[gate.Inputs[0]], IntegerOps.TakesTwo(op) ? Nets[gate.Inputs[1]] : NullSignal.Instance);
+            }
+
             if (gate.Kind == GateKind.Transistor)
             {
                 return Nets[gate.Inputs[1]].IsTruthy() ? Nets[gate.Inputs[0]] : NullSignal.Instance;

@@ -6,6 +6,7 @@ using Circuits.IC.Commands;
 using Circuits.IC.Compilation;
 using Circuits.IC.Library;
 using Circuits.IC.Package;
+using Circuits.IntGates;
 using Circuits.Kit;
 using Circuits.Latch;
 using Core.Localization;
@@ -41,6 +42,8 @@ namespace Circuits
         {
             MirroredBuildingBuilder latch = AddLatch(logger);
             MirroredLatchHandle = GameRewirers.AddRewirer(new MirroredLatchRewirer(latch, logger));
+            // The integer gates get their own group in the Wires toolbar, after Logic Gates.
+            IntegerGates.Register(AndGateGroup, AndGateGroup, logger);
             // The IC buildings get their own group in the Wires toolbar, after Logic Gates (where the latch stays).
             // Chips smallest first, then the pins (see ToolbarGroup).
             ModFolderLocator resources = ModDirectoryLocator.CreateLocator<CircuitsMod>().SubLocator("Resources");

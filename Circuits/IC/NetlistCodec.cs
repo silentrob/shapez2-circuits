@@ -12,9 +12,10 @@ namespace Circuits.IC
     //   4: adds the virtual shape processor gates; a Constant's value is followed by its signal ("" for none),
     //      and a gate with two outputs ends with the second.
     //   5: adds the Latch gate.
+    //   6: adds the integer gates.
     public static class NetlistCodec
     {
-        private const int Version = 5;
+        private const int Version = 6;
 
         // Far beyond any real circuit; only guards against allocating from corrupt counts.
         private const int MaxCount = 1_000_000;
@@ -120,7 +121,8 @@ namespace Circuits.IC
                     int inputCount = reader.ReadInt32();
                     if (!Enum.IsDefined(typeof(GateKind), kind) || inputCount != InputCount(kind)
                         || (version < 4 && kind > GateKind.Constant)
-                        || (version < 5 && kind > GateKind.VirtualAnalyze))
+                        || (version < 5 && kind > GateKind.VirtualAnalyze)
+                        || (version < 6 && kind > GateKind.Latch))
                     {
                         return false;
                     }

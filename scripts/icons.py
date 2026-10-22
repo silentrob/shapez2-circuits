@@ -173,6 +173,15 @@ def board(width, height, name):
     icon.save(name)
 
 
+def integer_gate(glyph, name, size=72):
+    """An integer gate: a gate body (flat left, round right, as the latch's) with its operation in orange."""
+    icon = Icon()
+    icon.shape(rect(186, 112, 232, 136, 6), ORANGE)
+    icon.shape(union(rect(26, 50, 120, 196, 10), ellipse(120, 123, 73)), WHITE)
+    icon.shape(text(112, 125, glyph, size), ORANGE)
+    icon.save(name)
+
+
 def wired_foundation(foundation, name):
     """A vanilla foundation icon, as large as fits, with the wires category's bolt over its centre."""
     base_file = os.path.join(DUMP, foundation + '.png')
@@ -205,6 +214,10 @@ if __name__ == '__main__':
     latch()
     pin(output=False)
     pin(output=True)
+    integer_gate('&|', 'CircuitsBitwiseGate_Icon.png', 64)
+    integer_gate('~', 'CircuitsNotGate_Icon.png', 96)
+    integer_gate('<<', 'CircuitsShiftGate_Icon.png', 60)
+    integer_gate('+-', 'CircuitsArithmeticGate_Icon.png', 72)
     wired_foundation('05-06-00 FoundationGroup_1x1', 'IC_Board_Icon.png')
     wired_foundation('05-06-04 FoundationGroup_1x2', 'IC_Board2x1_Icon.png')
     wired_foundation('05-07-00 FoundationGroup_2x2', 'IC_Board2x2_Icon.png')

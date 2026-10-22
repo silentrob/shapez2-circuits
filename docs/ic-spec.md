@@ -497,6 +497,14 @@ Each one ends with something playable.
      same rule as the latch building (`Latch/LatchRule`), in the same tick, so it adds no delay. What each
      latch holds lives in the package state (v3, after the connections) and survives saving; netlist codec
      v5. A latch on a chip nested in a board is copied in like any gate, with its own slot.
+   - **Integer gates (built).** Four buildings in an Integer Gates group in the Wires toolbar
+     (`IntGates/IntegerGates`), styled after the Compare gate (an operation picked in the side panel, written
+     on top with the Display's font) but teal: Bitwise (AND, OR, XOR), Bitwise NOT, Shift (left, right; amount
+     from the north) and Arithmetic (add, subtract). Inputs west then north, output east. `IntGates/IntegerOps`
+     is shared by the buildings and packages: anything not a number counts as 0, the result is always a
+     number, right shifts fill with zeros, a negative amount shifts the other way, sums wrap. Netlist codec
+     v6. Masking with shapes was considered and set aside: shapes have a part and a colour per quadrant and
+     layer, and converting them to and from numbers is far more complex than an integer mask.
 6. **Release.** Package models, translations, Workshop page using the ShapezShifter logo, compatibility
    notes.
 

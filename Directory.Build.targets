@@ -5,7 +5,7 @@
     <ItemGroup Condition="'$(UseShapezShifter)' == 'true'">
         <Reference Include="ShapezShifter" HintPath="$(SPZ2_SHIFTER)" Private="False" />
         <Reference Include="MonoMod.RuntimeDetour" HintPath="$(SPZ2_MONOMOD)" Private="False" />
-        <Reference Include="$(SPZ2_PATH)\Game.*.dll;$(SPZ2_PATH)\Core.*.dll;$(SPZ2_PATH)\SPZGameAssembly.dll;$(SPZ2_PATH)\Unity.Mathematics.dll;$(SPZ2_PATH)\Unity.Core.dll;$(SPZ2_PATH)\UnityEngine.ImageConversionModule.dll"
+        <Reference Include="$(SPZ2_PATH)\Game.*.dll;$(SPZ2_PATH)\Core.*.dll;$(SPZ2_PATH)\SPZGameAssembly.dll;$(SPZ2_PATH)\Unity.Mathematics.dll;$(SPZ2_PATH)\Unity.Core.dll;$(SPZ2_PATH)\Unity.TextMeshPro.dll;$(SPZ2_PATH)\UnityEngine.ImageConversionModule.dll"
                    Exclude="$(SPZ2_PATH)\Game.Core.Modding.dll;$(SPZ2_PATH)\Game.*.Editor.*.dll;$(SPZ2_PATH)\Game.Content.Editor.*.dll"
                    Private="False" />
     </ItemGroup>
