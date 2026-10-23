@@ -5,4 +5,4 @@ logs/
 .idea/
 *.user
 *.suo
-Steam/*.tmp.vdf
+**/Steam/*.tmp.vdf

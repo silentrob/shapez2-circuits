@@ -1,0 +1,10 @@
+"workshopitem"
+{
+    "appid" "2162800"
+    "publishedfileid" "3824932181"
+    "contentfolder" "${CONTENT_PATH}"
+    "previewfile" "${PREVIEW_IMG}"
+    "visibility" "2"
+    "title" "Circuits"
+    "description" "Design circuits on IC Boards, build them into firmware, and run them on chips you place anywhere. Plus a latch and integer gates. Needs ShapezShifter and MonoMod.RuntimeDetour."
+}

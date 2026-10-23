@@ -59,6 +59,21 @@ The build finds the game and the Workshop mods at their default Steam paths. For
 `SPZ2_PATH` to the game's `shapez 2_Data\Managed` folder (launching the game once with
 `--set-modding-env-vars` sets it); see `Directory.Build.props`. Restart the game after building.
 
+## Publish
+
+Uploading follows the [shapez 2 modding documentation](https://tobspr-games.notion.site/shapez2-modding-documentation)
+and its sample mods. It needs [SteamCMD](https://developer.valvesoftware.com/wiki/SteamCMD) on the `PATH` and a
+POSIX shell (Git Bash), then, from `Circuits/`:
+
+```
+STEAM_USERNAME=<your Steam login> dotnet msbuild Circuits.csproj -t:SteamPublish
+```
+
+It builds, stages only what the mod needs, and uploads it with `Circuits/Steam/SteamPublish.sh`; SteamCMD asks
+for the password and Steam Guard code. The first upload creates the Workshop item, private, and writes its id
+into `Circuits/Steam/base.vdf`: commit that, so later uploads update the same item. Then, on the item's Steam
+page, add ShapezShifter and MonoMod.RuntimeDetour as required items and make it public.
+
 ## Status
 
 Version 0.1, before its first Workshop release. Not in this version: global and controlled transmitters inside

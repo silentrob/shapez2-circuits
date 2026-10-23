@@ -9,4 +9,29 @@
         <!-- Named in ShapezShifter's IIslandBuilder, which BoardIslandBuilder implements; internal to the game. -->
         <Publicize Include="SPZGameAssembly:IslandDefinitionGroup" />
     </ItemGroup>
+
+    <!--
+      Uploads the mod to the Steam Workshop (see Steam/SteamPublish.sh):
+        STEAM_USERNAME=<login> dotnet msbuild Circuits.csproj -t:SteamPublish
+      Builds, then stages only what the mod needs into obj/SteamContent: the build output folder is the game's mods
+      folder, which also holds development dumps (palette-dump, icon-dump) and the debug symbols.
+    -->
+    <PropertyGroup>
+        <SteamContentPath>$(MSBuildProjectDirectory)\obj\SteamContent\</SteamContentPath>
+        <!-- Git's own launcher sets up its tools (cygpath, envsubst), so this runs from any shell; else sh on the PATH. -->
+        <SteamShell Condition="Exists('$(ProgramFiles)\Git\bin\sh.exe')">&quot;$(ProgramFiles)\Git\bin\sh.exe&quot;</SteamShell>
+        <SteamShell Condition="'$(SteamShell)' == ''">sh</SteamShell>
+    </PropertyGroup>
+
+    <Target Name="SteamPublish" DependsOnTargets="Build">
+        <ItemGroup>
+            <SteamContent Include="$(OutputPath)Circuits.dll;$(OutputPath)manifest.json;$(OutputPath)translations.json" />
+            <SteamResources Include="$(OutputPath)Resources\**\*" />
+        </ItemGroup>
+        <RemoveDir Directories="$(SteamContentPath)" />
+        <Copy SourceFiles="@(SteamContent)" DestinationFolder="$(SteamContentPath)" />
+        <Copy SourceFiles="@(SteamResources)" DestinationFolder="$(SteamContentPath)Resources\%(RecursiveDir)" />
+        <!-- Without the trailing backslash, which would escape the closing quote on the command line. -->
+        <Exec Command="$(SteamShell) ./Steam/SteamPublish.sh &quot;$(SteamContentPath.TrimEnd('\'))&quot;" WorkingDirectory="$(MSBuildProjectDirectory)" />
+    </Target>
 </Project>
