@@ -26,11 +26,11 @@ The design, and the reasoning behind it, is in [docs/ic-spec.md](docs/ic-spec.md
 
 ## Install
 
-1. Subscribe to the two mods Circuits builds on, in the Steam Workshop:
-   [ShapezShifter](https://steamcommunity.com/sharedfiles/filedetails/?id=3542611357) and
-   [MonoMod.RuntimeDetour](https://steamcommunity.com/sharedfiles/filedetails/?id=3542712030).
-2. Build Circuits (below); it builds straight into the game's mods folder.
-3. Enable it in the game's mod menu.
+Subscribe to **[Circuits on the Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3824932181)**.
+Steam offers to subscribe to the two mods it builds on as well,
+[ShapezShifter](https://steamcommunity.com/sharedfiles/filedetails/?id=3542611357) and
+[MonoMod.RuntimeDetour](https://steamcommunity.com/sharedfiles/filedetails/?id=3542712030); then enable Circuits in
+the game's mod menu. To run your own build instead, see Build below.
 
 Circuits changes savegames and disables achievements while it is on. Saves made with it need it to load, so
 keep a copy of any save you want to go back to without it.
@@ -70,13 +70,13 @@ STEAM_USERNAME=<your Steam login> dotnet msbuild Circuits.csproj -t:SteamPublish
 ```
 
 It builds, stages only what the mod needs, and uploads it with `Circuits/Steam/SteamPublish.sh`; SteamCMD asks
-for the password and Steam Guard code. The first upload creates the Workshop item, private, and writes its id
-into `Circuits/Steam/base.vdf`: commit that, so later uploads update the same item. Then, on the item's Steam
-page, add ShapezShifter and MonoMod.RuntimeDetour as required items and make it public.
+for the password and Steam Guard code. The Workshop item's id is kept in `Circuits/Steam/base.vdf`, so uploads update
+[the published item](https://steamcommunity.com/sharedfiles/filedetails/?id=3824932181); its visibility there is
+public.
 
 ## Status
 
-Version 0.1, before its first Workshop release. Not in this version: global and controlled transmitters inside
+Version 0.1, the first Workshop release. Not in this version: global and controlled transmitters inside
 chips.
 
 ## Credits

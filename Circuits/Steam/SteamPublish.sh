@@ -7,7 +7,7 @@
 #
 # Needs steamcmd on the PATH; it asks for the password (and Steam Guard code) itself. base.vdf holds the Workshop
 # item: its "publishedfileid" is 0 until the first upload creates the item, and is then written back here, so
-# commit it. "visibility" 2 is private: make the item public on its Steam page once the page is ready.
+# commit it. "visibility" is 0, public (2 is private).
 
 set -e
 
